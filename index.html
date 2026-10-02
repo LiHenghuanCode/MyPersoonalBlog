@@ -2,24 +2,21 @@
 <!--
   ============================================
   个人主页 — lihenghuan.com
-  已填好：姓名 / 邮箱 / GitHub / 域名 / 页脚
-  待填：全文搜索 【 符号，替换成你自己的内容
-  不需要的板块（News / Publication / Leadership）可整段删除
+  内容来自「李恒桓-CV.pdf」
   配色改 <style> 顶部 :root 里的 --accent 即可
   ============================================
 -->
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Henghuan Li — Software Engineer</title>
-<meta name="description" content="【一句话自我介绍，用于搜索引擎和分享预览】">
+<title>李恒桓 Henghuan Li — 后端开发 / AI Agent</title>
+<meta name="description" content="李恒桓，澳洲国立大学计算机科学硕士在读（2027 届）。后端方向，Go / Java，近期专注 LLM Agent 系统与 RAG 工程。">
 <link rel="canonical" href="https://lihenghuan.com/">
 
-<!-- 分享到微信 / Twitter 时的预览卡片 -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Henghuan Li — Software Engineer">
-<meta property="og:description" content="【一句话自我介绍】">
+<meta property="og:title" content="李恒桓 Henghuan Li — 后端开发 / AI Agent">
+<meta property="og:description" content="ANU 计算机科学硕士在读（2027 届）。后端方向，Go / Java，近期专注 LLM Agent 系统与 RAG 工程。">
 <meta property="og:url" content="https://lihenghuan.com/">
 <style>
   :root {
@@ -32,7 +29,7 @@
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", sans-serif;
+    font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
     color: var(--ink);
     background: #faf9f6;
     line-height: 1.65;
@@ -87,41 +84,20 @@
   p.bio { color: var(--ink); margin-bottom: 12px; }
   p.bio b { font-weight: 600; }
 
-  ul.news { list-style: none; }
-  ul.news li { margin-bottom: 7px; padding-left: 2px; }
-  ul.news .date { color: var(--accent); font-size: 13.5px; margin-right: 6px; font-weight: 500; }
-
-  .work { margin-bottom: 18px; }
+  .work { margin-bottom: 22px; }
   .work .head { font-weight: 600; font-size: 15px; }
   .work .head .role { font-weight: 400; color: var(--soft); }
   .work .head .when { float: right; font-weight: 400; color: var(--faint); font-size: 13.5px; }
-  .work .desc { color: var(--soft); font-size: 14px; margin-top: 3px; }
+  .work .stack { font-size: 12.5px; color: var(--faint); margin-top: 2px; letter-spacing: .01em; }
+  .work .desc { color: var(--soft); font-size: 14px; margin-top: 5px; }
   .work .desc b { color: var(--ink); font-weight: 600; }
-  .work .desc .m { color: var(--accent); font-weight: 600; }  /* 高亮数字用这个 class */
+  .work ul.plain { margin-top: 7px; }
+  .m { color: var(--accent); font-weight: 600; }  /* 高亮数字 */
 
   ul.plain { list-style: none; }
-  ul.plain li { margin-bottom: 6px; padding-left: 16px; position: relative; color: var(--soft); font-size: 14px; }
+  ul.plain li { margin-bottom: 7px; padding-left: 16px; position: relative; color: var(--soft); font-size: 14px; }
   ul.plain li::before { content: "·"; position: absolute; left: 2px; color: var(--accent); font-weight: 700; }
-  ul.plain li b { color: var(--ink); }
-
-  /* 论文/作品卡片：配图 + 标题 + 作者 + 简介 */
-  .pubcard {
-    display: flex; gap: 24px; align-items: flex-start;
-    border: 1px solid var(--line); border-radius: 10px;
-    background: #fff; padding: 18px;
-  }
-  .pubcard img {
-    width: 200px; border-radius: 6px; border: 1px solid var(--line);
-    flex-shrink: 0;
-  }
-  .pubcard .ptitle { font-weight: 600; font-size: 15.5px; line-height: 1.45; }
-  .pubcard .authors { font-size: 13.5px; color: var(--soft); margin-top: 5px; }
-  .pubcard .authors b { color: var(--ink); }
-  .pubcard .venue { font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 2px; }
-  .pubcard .pdesc {
-    font-size: 13.5px; color: var(--soft); font-style: italic;
-    margin-top: 8px; line-height: 1.6;
-  }
+  ul.plain li b { color: var(--ink); font-weight: 600; }
 
   footer {
     grid-column: 1 / -1;
@@ -135,8 +111,6 @@
     .page { grid-template-columns: 1fr; gap: 12px; padding: 32px 22px 48px; }
     .sidebar .links { border-top: none; padding-top: 10px; }
     .work .head .when { float: none; display: block; }
-    .pubcard { flex-direction: column; }
-    .pubcard img { width: 100%; }
   }
 </style>
 </head>
@@ -144,93 +118,104 @@
 <div class="page">
 
   <aside class="sidebar">
-    <h1>Henghuan Li</h1>
-    <div class="title">【职位 / 求职方向，如 Backend Engineer (Go)】</div>
-    <div class="affil">【学校 · 学历】<br>【曾就职公司，没有可删除】</div>
+    <h1>李恒桓</h1>
+    <div class="title">Henghuan Li · 后端开发 / AI Agent</div>
+    <div class="affil">澳洲国立大学 计算机科学 硕士（2027 届）<br>重庆大学 土木工程 学士</div>
     <ul class="links">
       <li><a href="mailto:lihenghuan3@gmail.com">Email</a></li>
       <li><a href="https://github.com/LiHenghuanCode">GitHub</a></li>
-      <!-- 有 PDF 简历后：把 PDF 放到仓库根目录，取消下面注释并改成实际文件名
-      <li><a href="Resume_EN.pdf">Resume (EN)</a></li>
-      <li><a href="Resume_CN.pdf">简历（中文）</a></li>
-      -->
-      <!-- 其他链接，按需取消注释：
-      <li><a href="https://www.linkedin.com/in/【用户名】">LinkedIn</a></li>
+      <!-- 有 PDF 简历后：把 PDF 放进仓库根目录，取消注释并改成实际文件名
+      <li><a href="Henghuan-Li-CV.pdf">简历 PDF</a></li>
       -->
     </ul>
-    <div class="note">【一句话求职意向，例如：Open to backend / infrastructure roles — internships and full-time.】</div>
+    <div class="note">2027 届，正在找后端 / AI Agent 方向的实习与全职。</div>
   </aside>
 
   <main>
     <h2>Biography</h2>
     <p class="bio">
-      【第一段：你是谁——学校、专业、排名/成绩等亮点，关键信息用 &lt;b&gt; 标签加粗。】
+      <b>澳洲国立大学</b>（ANU，QS 29）计算机科学硕士在读，2027 届；本科<b>重庆大学</b>土木工程。
     </p>
     <p class="bio">
-      【第二段：你的核心经历——最重要的实习/工作，做了什么，带来了什么量化成果，数字同样用 &lt;b&gt; 加粗。】
+      后端出身，主力语言 <b>Go</b>，熟悉 Java。做过微服务网关这类偏性能的活儿，也在工业软件里写过 C++ 算法——
+      把大型 BIM 模型的墙体识别从 <span class="m">221ms</span> 压到 <span class="m">28ms</span>。
     </p>
     <p class="bio">
-      【第三段（可选）：一句话总结你的工作方式或兴趣方向。】
+      近一年重心在 <b>LLM Agent 系统</b>：多 Agent 编排、RAG 工程、以及怎么让一个不可靠的模型交付出可信的结果。
+      比起让模型自己汇报自己干得怎么样，我更倾向用确定性的规则和外部证据把这件事卡死。
     </p>
 
-    <h2>News</h2>
-    <ul class="news">
-      <li><span class="date">[2026.10]</span>【最近动态，如论文录用 / 获奖 / 入职。】</li>
-      <li><span class="date">【[2026.06]】</span>【按时间倒序排列。】</li>
-    </ul>
+    <h2>Education</h2>
+
+    <div class="work">
+      <div class="head">澳洲国立大学（ANU，QS 29） <span class="role">— 计算机科学 · 硕士</span><span class="when">2025.02 — 2026.12</span></div>
+    </div>
+
+    <div class="work">
+      <div class="head">重庆大学（985） <span class="role">— 土木工程 · 学士</span><span class="when">2020.09 — 2024.07</span></div>
+    </div>
 
     <h2>Experience</h2>
 
-    <!-- 一段经历复制一个 .work 块 -->
     <div class="work">
-      <div class="head">【公司名称 · 部门】 <span class="role">— 【岗位名称】</span><span class="when">【2024.05 — 2024.09】</span></div>
+      <div class="head">北京构力科技有限公司 <span class="role">— C++ 软件研发实习生（工业软件算法）</span><span class="when">2025.11 — 2026.01</span></div>
       <div class="desc">
-        【职责与成果描述：负责什么、做了什么、结果如何。关键数字用 &lt;span class="m"&gt; 标签高亮（显示为主题色），例如：提升了 <span class="m">11%</span>。】
+        参与 BimBase 插件的建筑信息化识别算法，把 OBJ 渲染哑数据还原成结构化 JSON。
       </div>
+      <ul class="plain">
+        <li>主导<b>两阶段候选剪枝 + OpenMP 并行</b>的墙体识别策略，大型模型分类耗时从 <span class="m">221ms</span> 降到 <span class="m">28ms</span>（<span class="m">7.9×</span>）。</li>
+        <li>按预估容量提前分配，把 <code>std::unordered_map</code> 的 rehash 次数从 <span class="m">1340</span> 次压到 <span class="m">15</span> 次。</li>
+      </ul>
+    </div>
+
+    <h2>Projects</h2>
+
+    <div class="work">
+      <div class="head">Agent Leader <span class="role">— 多 Agent 开发与可信交付</span><span class="when">2026.05 — 2026.07</span></div>
+      <div class="stack">Python 3.11 · FastAPI · LangGraph · Pydantic v2 · Typer · SQLite · Git Worktree · pytest</div>
+      <ul class="plain">
+        <li><b>记忆可信交接</b>：大模型的自我汇报不可信、自评过宽，所以上三层验证——文件系统快照哈希对账（不信自我汇报）、执行与评审权分离（冻结系统后由独立 Agent 重放评审）、记忆准入门槛（证据复核加门禁 PASS 才允许交接）。</li>
+        <li><b>多 Agent 编排</b>：用有向无环图显式表达任务拆分，负责人、依赖、读写范围、完成标准都写进图里，调度层校验无环——死循环在结构上就构造不出来。权限跟着任务走而不是跟着 Agent 走，执行前冻结最小授权，避免高权限 Agent 泄漏敏感内容。</li>
+        <li><b>超长任务</b>：进程与任务解耦，进程死掉任务不结束；状态和证据持续落盘，恢复时先校验工作区未被污染，再按失败类型选最小代价的重试策略，多 Agent 场景只重跑未完成的子任务。</li>
+        <li><b>可信压缩</b>：模型自主压缩上下文同样不可信，改用确定性规则硬性约束——冻结契约和未解决约束优先级最高且绝不截断，超预算直接报错而非悄悄丢弃。</li>
+      </ul>
     </div>
 
     <div class="work">
-      <div class="head">【公司名称】 <span class="role">— 【岗位名称】</span><span class="when">【2023.09 — 2024.02】</span></div>
-      <div class="desc">
-        【第二段经历，同上。】
-      </div>
+      <div class="head">个人健康顾问助手 <span class="role">— 多模态文档理解 + RAG</span><span class="when">2026.02 — 2026.05</span></div>
+      <div class="stack">Go 1.25 · gRPC · Python 3.11 · LangGraph · Milvus · PostgreSQL · Redis · React 19 · pytest</div>
+      <ul class="plain">
+        <li><b>OCR + VLM 多模态解析</b>：体检报告按形态路由到 PDF 表格还原 / 文本行解析 / 图片 OCR+VLM 双通道；同名异值时采信有版面语义理解能力的 VLM，并对 OCR 侧留痕拒绝。核心纪律是不猜值——宁可拒绝留痕，也不做静默修正。</li>
+        <li><b>多路召回与索引优化</b>：QueryPlanner 拆出带预算的查询计划，SQL / BM25（Milvus Function 声明式全文）/ Dense 三路召回；分数量纲不可比，所以只按排名做 RRF 融合，Cross-Encoder 精排兜底。索引按规模分治——语料库走 HNSW 求召回，八万余 chunk 的论文库走 IVF_SQ8 量化省内存；租户与知识版本用 expr 服务端预过滤，权限做在向量层。</li>
+        <li><b>幻觉防范与记忆治理</b>：无证据不说话，建议必须绑定证据 ID，引用越过白名单即判伪造，数值与库内实测值比对等四类确定性校验不过就打回。记忆写入设门禁——检索到的文档永不入记忆以防投毒，置信度不足丢弃，落库须用户确认；AES-256-GCM 加密加 content_hash 去重，注入限定 token 预算并在前端透明展示。</li>
+      </ul>
     </div>
 
-    <!-- 没有论文/作品可整段删除此板块 -->
-    <h2>Publication</h2>
-    <div class="pubcard">
-      <!-- 配图：和本文件放同一目录，建议宽度 ≥400px -->
-      <img src="【paper_thumb.png】" alt="【论文/作品配图】">
-      <div>
-        <div class="ptitle">【论文/作品标题】</div>
-        <div class="authors">【作者列表，自己的名字用 &lt;b&gt;名字&lt;/b&gt; 加粗】</div>
-        <div class="venue">【发表venue，如 EMNLP 2026】</div>
-        <div class="pdesc">【一两句话介绍内容和你本人的贡献。】</div>
-      </div>
+    <div class="work">
+      <div class="head">Mini-Gateway <span class="role">— 微服务高性能 API 网关</span><span class="when">2025.03 — 2025.06</span></div>
+      <div class="stack">Go · Gin · Redis · Prometheus · Grafana · OpenTelemetry · FastHTTP · Nacos · Protocol Buffers · Hystrix</div>
+      <ul class="plain">
+        <li>Go 协程池配合 epoll 多路复用做非阻塞 I/O，单机 <span class="m">10K+</span> 并发连接，平均响应时间低于 <span class="m">5ms</span>。</li>
+        <li>滑动窗口统计 + hystrix-go 熔断器，按错误率和响应时间自适应熔断，高负载下错误率从 <span class="m">15%</span> 降到 <span class="m">0.5%</span>。</li>
+        <li>Protocol Buffers 编解码配合 grpc-gateway 做 HTTP ↔ gRPC 双向转换，转换延迟控制在 <span class="m">5ms</span> 以内，保持 <span class="m">95%</span> 的性能。</li>
+        <li>fasthttp.ServeFile 走 sendfile 实现零拷贝传输，资源传输性能提升 <span class="m">60%</span>，内存占用降低 <span class="m">40%</span>。</li>
+        <li>Redis + Lua 实现令牌桶，跨实例精准限流，精度误差在 <span class="m">1%</span> 以内。</li>
+      </ul>
     </div>
-
-    <h2>Honors &amp; Awards</h2>
-    <ul class="plain">
-      <li>【奖项一，关键词用 &lt;b&gt; 标签加粗】</li>
-      <li>【奖项二】</li>
-      <li>【奖项三】</li>
-    </ul>
-
-    <h2>Leadership</h2>
-    <ul class="plain">
-      <li>【<b>学生组织职位</b>，学校 — 做了什么、覆盖多少人】</li>
-      <li>【第二段经历】</li>
-    </ul>
 
     <h2>Skills</h2>
     <ul class="plain">
-      <li><b>【Languages:】</b>【Go, Java, Python, ...】</li>
-      <li><b>【Infra &amp; Tools:】</b>【Docker, Kubernetes, MySQL, Redis, Git, ...】</li>
-      <li><b>Languages:</b>【中文（母语），英语（CET-6）】</li>
+      <li><b>后端：</b>Golang（Goroutine、Channel、Context、锁与并发模型）；Java（集合、多线程、JVM、GC）；SpringBoot、Gin、Hertz、Kitex；微服务设计、接口联调、基础服务治理</li>
+      <li><b>数据库与中间件：</b>MySQL、Redis、Kafka、Elasticsearch；SQL 优化、缓存设计与一致性处理、消息队列实践</li>
+      <li><b>分布式：</b>分布式 ID、幂等、分布式锁、数据一致性、分布式事务</li>
+      <li><b>AI 应用：</b>LLM 基本原理、Transformer 架构、SFT、KV Cache、RAG / Graph RAG / Agentic RAG；AI Agent、Harness Engineering、可信 Agent 交付</li>
+      <li><b>计算机基础：</b>数据结构与算法、计算机网络、操作系统、设计模式</li>
+      <li><b>工程工具：</b>Linux、Docker、Git、CI/CD；了解 Kubernetes 核心概念及基础使用</li>
+      <li><b>语言：</b>中文（母语）；英语 —— 雅思学术类 6.5，CET-4/6</li>
     </ul>
 
     <footer>
-      <span>© 2026 Henghuan Li</span>
+      <span>© 2026 李恒桓 Henghuan Li</span>
       <span>Last updated: Oct 2026</span>
     </footer>
   </main>
