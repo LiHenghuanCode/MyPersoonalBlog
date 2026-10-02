@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<!--
+  ============================================
+  个人主页 — lihenghuan.com
+  已填好：姓名 / 邮箱 / GitHub / 域名 / 页脚
+  待填：全文搜索 【 符号，替换成你自己的内容
+  不需要的板块（News / Publication / Leadership）可整段删除
+  配色改 <style> 顶部 :root 里的 --accent 即可
+  ============================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Henghuan Li — Software Engineer</title>
+<meta name="description" content="【一句话自我介绍，用于搜索引擎和分享预览】">
+<link rel="canonical" href="https://lihenghuan.com/">
+
+<!-- 分享到微信 / Twitter 时的预览卡片 -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Henghuan Li — Software Engineer">
+<meta property="og:description" content="【一句话自我介绍】">
+<meta property="og:url" content="https://lihenghuan.com/">
+<style>
+  :root {
+    --ink: #222;
+    --soft: #555;
+    --faint: #999;
+    --line: #e4e1dc;
+    --link: #0057b8;
+    --accent: #b4552d;   /* 主题色，改这一个颜色即可换整体配色 */
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", sans-serif;
+    color: var(--ink);
+    background: #faf9f6;
+    line-height: 1.65;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { color: var(--accent); text-decoration: underline; }
+
+  .page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 48px 32px 64px;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 48px;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    margin-bottom: 6px;
+  }
+  .sidebar h1::after { content: "."; color: var(--accent); }
+  .sidebar .title { color: var(--soft); font-size: 14px; margin-bottom: 2px; }
+  .sidebar .affil { color: var(--faint); font-size: 13px; margin-bottom: 22px; }
+  .sidebar .links { list-style: none; border-top: 2px solid var(--accent); padding-top: 16px; }
+  .sidebar .links li { margin-bottom: 7px; font-size: 14px; }
+  .sidebar .links li::before { content: "›"; color: var(--accent); margin-right: 8px; }
+  .sidebar .note { margin-top: 22px; font-size: 12.5px; color: var(--faint); line-height: 1.6; }
+
+  /* ---------- Main ---------- */
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 21px;
+    font-weight: 600;
+    margin: 34px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  h2::after {
+    content: "";
+    position: absolute; left: 0; bottom: -1px;
+    width: 44px; height: 2px;
+    background: var(--accent);
+  }
+  h2:first-child { margin-top: 0; }
+  p.bio { color: var(--ink); margin-bottom: 12px; }
+  p.bio b { font-weight: 600; }
+
+  ul.news { list-style: none; }
+  ul.news li { margin-bottom: 7px; padding-left: 2px; }
+  ul.news .date { color: var(--accent); font-size: 13.5px; margin-right: 6px; font-weight: 500; }
+
+  .work { margin-bottom: 18px; }
+  .work .head { font-weight: 600; font-size: 15px; }
+  .work .head .role { font-weight: 400; color: var(--soft); }
+  .work .head .when { float: right; font-weight: 400; color: var(--faint); font-size: 13.5px; }
+  .work .desc { color: var(--soft); font-size: 14px; margin-top: 3px; }
+  .work .desc b { color: var(--ink); font-weight: 600; }
+  .work .desc .m { color: var(--accent); font-weight: 600; }  /* 高亮数字用这个 class */
+
+  ul.plain { list-style: none; }
+  ul.plain li { margin-bottom: 6px; padding-left: 16px; position: relative; color: var(--soft); font-size: 14px; }
+  ul.plain li::before { content: "·"; position: absolute; left: 2px; color: var(--accent); font-weight: 700; }
+  ul.plain li b { color: var(--ink); }
+
+  /* 论文/作品卡片：配图 + 标题 + 作者 + 简介 */
+  .pubcard {
+    display: flex; gap: 24px; align-items: flex-start;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: #fff; padding: 18px;
+  }
+  .pubcard img {
+    width: 200px; border-radius: 6px; border: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .pubcard .ptitle { font-weight: 600; font-size: 15.5px; line-height: 1.45; }
+  .pubcard .authors { font-size: 13.5px; color: var(--soft); margin-top: 5px; }
+  .pubcard .authors b { color: var(--ink); }
+  .pubcard .venue { font-size: 13px; color: var(--accent); font-weight: 600; margin-top: 2px; }
+  .pubcard .pdesc {
+    font-size: 13.5px; color: var(--soft); font-style: italic;
+    margin-top: 8px; line-height: 1.6;
+  }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    margin-top: 20px; padding-top: 16px;
+    font-size: 12.5px; color: var(--faint);
+    display: flex; justify-content: space-between;
+  }
+
+  @media (max-width: 720px) {
+    .page { grid-template-columns: 1fr; gap: 12px; padding: 32px 22px 48px; }
+    .sidebar .links { border-top: none; padding-top: 10px; }
+    .work .head .when { float: none; display: block; }
+    .pubcard { flex-direction: column; }
+    .pubcard img { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <aside class="sidebar">
+    <h1>Henghuan Li</h1>
+    <div class="title">【职位 / 求职方向，如 Backend Engineer (Go)】</div>
+    <div class="affil">【学校 · 学历】<br>【曾就职公司，没有可删除】</div>
+    <ul class="links">
+      <li><a href="mailto:lihenghuan3@gmail.com">Email</a></li>
+      <li><a href="https://github.com/LiHenghuanCode">GitHub</a></li>
+      <!-- 有 PDF 简历后：把 PDF 放到仓库根目录，取消下面注释并改成实际文件名
+      <li><a href="Resume_EN.pdf">Resume (EN)</a></li>
+      <li><a href="Resume_CN.pdf">简历（中文）</a></li>
+      -->
+      <!-- 其他链接，按需取消注释：
+      <li><a href="https://www.linkedin.com/in/【用户名】">LinkedIn</a></li>
+      -->
+    </ul>
+    <div class="note">【一句话求职意向，例如：Open to backend / infrastructure roles — internships and full-time.】</div>
+  </aside>
+
+  <main>
+    <h2>Biography</h2>
+    <p class="bio">
+      【第一段：你是谁——学校、专业、排名/成绩等亮点，关键信息用 &lt;b&gt; 标签加粗。】
+    </p>
+    <p class="bio">
+      【第二段：你的核心经历——最重要的实习/工作，做了什么，带来了什么量化成果，数字同样用 &lt;b&gt; 加粗。】
+    </p>
+    <p class="bio">
+      【第三段（可选）：一句话总结你的工作方式或兴趣方向。】
+    </p>
+
+    <h2>News</h2>
+    <ul class="news">
+      <li><span class="date">[2026.10]</span>【最近动态，如论文录用 / 获奖 / 入职。】</li>
+      <li><span class="date">【[2026.06]】</span>【按时间倒序排列。】</li>
+    </ul>
+
+    <h2>Experience</h2>
+
+    <!-- 一段经历复制一个 .work 块 -->
+    <div class="work">
+      <div class="head">【公司名称 · 部门】 <span class="role">— 【岗位名称】</span><span class="when">【2024.05 — 2024.09】</span></div>
+      <div class="desc">
+        【职责与成果描述：负责什么、做了什么、结果如何。关键数字用 &lt;span class="m"&gt; 标签高亮（显示为主题色），例如：提升了 <span class="m">11%</span>。】
+      </div>
+    </div>
+
+    <div class="work">
+      <div class="head">【公司名称】 <span class="role">— 【岗位名称】</span><span class="when">【2023.09 — 2024.02】</span></div>
+      <div class="desc">
+        【第二段经历，同上。】
+      </div>
+    </div>
+
+    <!-- 没有论文/作品可整段删除此板块 -->
+    <h2>Publication</h2>
+    <div class="pubcard">
+      <!-- 配图：和本文件放同一目录，建议宽度 ≥400px -->
+      <img src="【paper_thumb.png】" alt="【论文/作品配图】">
+      <div>
+        <div class="ptitle">【论文/作品标题】</div>
+        <div class="authors">【作者列表，自己的名字用 &lt;b&gt;名字&lt;/b&gt; 加粗】</div>
+        <div class="venue">【发表venue，如 EMNLP 2026】</div>
+        <div class="pdesc">【一两句话介绍内容和你本人的贡献。】</div>
+      </div>
+    </div>
+
+    <h2>Honors &amp; Awards</h2>
+    <ul class="plain">
+      <li>【奖项一，关键词用 &lt;b&gt; 标签加粗】</li>
+      <li>【奖项二】</li>
+      <li>【奖项三】</li>
+    </ul>
+
+    <h2>Leadership</h2>
+    <ul class="plain">
+      <li>【<b>学生组织职位</b>，学校 — 做了什么、覆盖多少人】</li>
+      <li>【第二段经历】</li>
+    </ul>
+
+    <h2>Skills</h2>
+    <ul class="plain">
+      <li><b>【Languages:】</b>【Go, Java, Python, ...】</li>
+      <li><b>【Infra &amp; Tools:】</b>【Docker, Kubernetes, MySQL, Redis, Git, ...】</li>
+      <li><b>Languages:</b>【中文（母语），英语（CET-6）】</li>
+    </ul>
+
+    <footer>
+      <span>© 2026 Henghuan Li</span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+
+</div>
+</body>
+</html>
