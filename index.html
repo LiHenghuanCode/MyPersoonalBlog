@@ -4,6 +4,7 @@
   个人主页 — lihenghuan.com
   内容来自「李恒桓-CV.pdf」
   配色改 <style> 顶部 :root 里的 --accent 即可
+  字体改 :root 里的 --font-serif / --font-sans 即可
   ============================================
 -->
 <html lang="zh-CN">
@@ -26,16 +27,25 @@
     --line: #e4e1dc;
     --link: #0057b8;
     --accent: #b4552d;   /* 主题色，改这一个颜色即可换整体配色 */
+
+    /* 字体：西文 Times New Roman；中文正文宋体、标题与强调黑体 */
+    --font-serif: "Times New Roman", Times, "SimSun", "Songti SC", "STSong", "宋体", serif;
+    --font-sans:  "Times New Roman", Times, "SimHei", "Heiti SC", "STHeiti", "黑体", sans-serif;
+    --font-mono:  "Courier New", Courier, "SimSun", "宋体", monospace;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: var(--font-serif);
     color: var(--ink);
     background: #faf9f6;
     line-height: 1.65;
     font-size: 15px;
     -webkit-font-smoothing: antialiased;
   }
+  b, strong { font-family: var(--font-sans); font-weight: 600; }
+  code { font-family: var(--font-mono); font-size: .95em; }
+  .sidebar .title, .sidebar .affil { font-family: var(--font-serif); }
+
   a { color: var(--link); text-decoration: none; }
   a:hover { color: var(--accent); text-decoration: underline; }
 
@@ -50,7 +60,7 @@
 
   /* ---------- Sidebar ---------- */
   .sidebar h1 {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-sans);
     font-size: 30px;
     font-weight: 600;
     letter-spacing: .01em;
@@ -66,7 +76,7 @@
 
   /* ---------- Main ---------- */
   h2 {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-sans);
     font-size: 21px;
     font-weight: 600;
     margin: 34px 0 12px;
@@ -85,9 +95,9 @@
   p.bio b { font-weight: 600; }
 
   .work { margin-bottom: 22px; }
-  .work .head { font-weight: 600; font-size: 15px; }
-  .work .head .role { font-weight: 400; color: var(--soft); }
-  .work .head .when { float: right; font-weight: 400; color: var(--faint); font-size: 13.5px; }
+  .work .head { font-family: var(--font-sans); font-weight: 600; font-size: 15px; }
+  .work .head .role { font-family: var(--font-serif); font-weight: 400; color: var(--soft); }
+  .work .head .when { font-family: var(--font-serif); float: right; font-weight: 400; color: var(--faint); font-size: 13.5px; }
   .work .stack { font-size: 12.5px; color: var(--faint); margin-top: 2px; letter-spacing: .01em; }
   .work .desc { color: var(--soft); font-size: 14px; margin-top: 5px; }
   .work .desc b { color: var(--ink); font-weight: 600; }
@@ -129,7 +139,7 @@
   </aside>
 
   <main>
-    <h2>Biography</h2>
+    <h2>自述</h2>
     <p class="bio">
       <b>澳洲国立大学</b>（ANU，QS 29）计算机科学硕士在读，2027 届；本科<b>重庆大学</b>土木工程。
     </p>
@@ -140,22 +150,32 @@
       求职重心：Agent开发，Golang后端开发，Java后端开发
     </p>
 
-    <h2>Education</h2>
+    <h2>教育经历</h2>
 
     <div class="work">
       <div class="head">澳洲国立大学（ANU，QS 29） <span class="role">— 计算机科学 · 硕士</span><span class="when">2025.02 — 2026.12</span></div>
+      <ul class="plain">
+        <li><b>主修课程：</b>计算机架构、结构化编程、系统网络与并发、计算机图形学、计算机网络、软件工程、软件架构、系统工程</li>
+        <li><b>毕业项目：</b>澳洲有毒植物开源互联网方案的设计与落地</li>
+      </ul>
     </div>
 
     <div class="work">
       <div class="head">重庆大学（985） <span class="role">— 土木工程 · 学士</span><span class="when">2020.09 — 2024.07</span></div>
+      <ul class="plain">
+        <li><b>自学转码：</b>Java、C++、Java Android 开发、数据结构与算法</li>
+        <li>互联网创新创业大赛 重庆大学校赛 <b>银奖</b></li>
+      </ul>
     </div>
 
-    <h2>Experience</h2>
+    <h2>实习经历</h2>
 
     <div class="work">
       <div class="head">北京构力科技有限公司 <span class="role">— C++ 软件研发实习生（工业软件算法）</span><span class="when">2025.11 — 2026.01</span></div>
       <div class="desc">
-        参与 BimBase 插件的建筑信息化识别算法，把 OBJ 渲染哑数据还原成结构化 JSON。
+        墨斗云是 BimBase 旗下插件之一，面向 AI 时代的优质数据批量生产——用智能识别算法成规模地替代传统人工数据标注。
+        我为该插件落地了一套建筑信息化识别算法：把建筑 3D 扫描产出的 OBJ（只含点线面的渲染哑数据）转成结构化 JSON，
+        提取墙、窗等构件的位置坐标与尺寸信息。
       </div>
       <ul class="plain">
         <li>主导<b>两阶段候选剪枝 + OpenMP 并行</b>的墙体识别策略，大型模型分类耗时从 <span class="m">221ms</span> 降到 <span class="m">28ms</span>（<span class="m">7.9×</span>）。</li>
