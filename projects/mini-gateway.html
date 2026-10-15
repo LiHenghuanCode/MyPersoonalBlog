@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini-Gateway · 微服务高性能 API 网关 — 李恒桓</title>
+<meta name="description" content="Go 协程池 + epoll 的非阻塞 I/O、自适应熔断、HTTP ↔ gRPC 双向转换、sendfile 零拷贝、Redis + Lua 分布式令牌桶。">
+<link rel="canonical" href="https://lihenghuan.com/projects/mini-gateway.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page page-detail">
+  <main>
+    <a class="back" href="../index.html">← 返回主页</a>
+
+    <h1 class="detail-title">Mini-Gateway</h1>
+    <div class="detail-meta">微服务高性能 API 网关 <span class="when">｜ 2025.03 — 2025.06</span></div>
+    <div class="stack">Go · Gin · Redis · Prometheus · Grafana · OpenTelemetry · FastHTTP · Nacos · Protocol Buffers · Hystrix</div>
+
+    <h2>出发点</h2>
+    <p class="bio">
+      网关是整条链路上唯一的单点：所有流量都从它过，所以它既是性能瓶颈的第一现场，也是故障放大器。
+      这个项目围绕两件事做——<b>把单机吞吐压上去</b>，以及<b>在下游出问题时不要把自己也拖死</b>。
+    </p>
+
+    <h2>一、非阻塞 I/O 与并发模型</h2>
+    <ul class="plain">
+      <li><b>Go 协程池 + epoll 多路复用</b>做非阻塞 I/O。用池而不是每连接一个 goroutine，是为了给并发量设上界——否则连接一多，调度和栈内存自己就会把机器打满。</li>
+      <li>单机 <span class="m">10K+</span> 并发连接，平均响应时间低于 <span class="m">5ms</span>。</li>
+    </ul>
+    <!-- 可补充：协程池的大小策略、压测工具与场景、P99 延迟 -->
+
+    <h2>二、自适应熔断</h2>
+    <ul class="plain">
+      <li><b>滑动窗口统计 + hystrix-go</b>，按错误率和响应时间两个维度自适应熔断。只看错误率会漏掉「还在返回 200 但已经慢到不可用」的下游。</li>
+      <li>高负载下错误率从 <span class="m">15%</span> 降到 <span class="m">0.5%</span>。</li>
+      <li>用滑动窗口而不是固定窗口，是因为固定窗口在边界上会把两个窗口的流量叠在一起，判断会抖。</li>
+    </ul>
+    <!-- 可补充：熔断阈值与半开恢复策略、降级返回的内容 -->
+
+    <h2>三、HTTP ↔ gRPC 双向转换</h2>
+    <ul class="plain">
+      <li><b>Protocol Buffers</b> 编解码配合 <b>grpc-gateway</b> 做双向转换，让外部仍然用 HTTP/JSON，内部走 gRPC。</li>
+      <li>转换延迟控制在 <span class="m">5ms</span> 以内，保持 <span class="m">95%</span> 的性能。</li>
+    </ul>
+    <!-- 可补充：转换层的内存分配优化（对象池 / 复用 buffer） -->
+
+    <h2>四、静态资源零拷贝</h2>
+    <ul class="plain">
+      <li><b>fasthttp.ServeFile</b> 走 <code>sendfile</code>，数据不经过用户态，省掉两次拷贝和一次上下文切换。</li>
+      <li>资源传输性能提升 <span class="m">60%</span>，内存占用降低 <span class="m">40%</span>。</li>
+    </ul>
+
+    <h2>五、分布式限流</h2>
+    <ul class="plain">
+      <li><b>Redis + Lua</b> 实现令牌桶。放 Lua 里是为了让「取令牌」这一串读写在 Redis 侧原子执行，多实例下才不会各自算出一份额度。</li>
+      <li>跨实例精准限流，精度误差在 <span class="m">1%</span> 以内。</li>
+    </ul>
+    <!-- 可补充：限流维度（用户 / 接口 / IP）、Redis 故障时的降级策略 -->
+
+    <h2>可观测性</h2>
+    <ul class="plain">
+      <li>Prometheus + Grafana 看指标，OpenTelemetry 串链路，Nacos 做服务发现与配置。
+        上面那些数字能说出来，前提是这一层先搭好了——不然优化只能凭感觉。</li>
+    </ul>
+
+    <footer>
+      <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

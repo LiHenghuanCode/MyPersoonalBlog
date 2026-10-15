@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人健康顾问助手 · 多模态文档理解 + RAG — 李恒桓</title>
+<meta name="description" content="体检报告的 OCR + VLM 双通道解析、SQL / BM25 / Dense 三路召回与 RRF 融合、无证据不说话的幻觉防范与记忆治理。">
+<link rel="canonical" href="https://lihenghuan.com/projects/health-advisor.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page page-detail">
+  <main>
+    <a class="back" href="../index.html">← 返回主页</a>
+
+    <h1 class="detail-title">个人健康顾问助手</h1>
+    <div class="detail-meta">多模态文档理解 + RAG <span class="when">｜ 2026.02 — 2026.05</span></div>
+    <div class="stack">Go 1.25 · gRPC · Python 3.11 · LangGraph · Milvus · PostgreSQL · Redis · React 19 · pytest</div>
+
+    <h2>出发点</h2>
+    <p class="bio">
+      健康场景和一般问答的区别在于<b>错一个数字的代价</b>。所以整个系统的设计纪律只有一条：
+      <b>不猜值</b>——宁可拒绝并留痕，也不做静默修正。下面三块都是这条纪律在不同层面的展开。
+    </p>
+
+    <h2>一、OCR + VLM 多模态解析</h2>
+    <p class="bio">
+      体检报告的形态非常杂：有可提取文本的 PDF 表格，有纯文本行，也有拍照/扫描的图片。
+      统一走一条管道必然在某类输入上表现很差，所以先<b>按形态路由</b>：
+    </p>
+    <ul class="plain">
+      <li>PDF 表格 → 表格结构还原；纯文本 → 文本行解析；图片 → <b>OCR + VLM 双通道</b>。</li>
+      <li><b>冲突裁决</b>：同名指标出现异值时，采信有版面语义理解能力的 VLM（它知道这个数字属于哪一行哪一列），同时对 OCR 侧<b>留痕拒绝</b>，而不是直接覆盖掉。</li>
+      <li>留痕的意义是可追溯：后面发现判错了，能知道当时两路分别读到了什么。</li>
+    </ul>
+    <!-- 可补充：路由的判别条件、双通道一致率、拒绝率 -->
+
+    <h2>二、多路召回与索引优化</h2>
+    <p class="bio">
+      <b>QueryPlanner</b> 先把问题拆成一份带预算的查询计划，再分三路召回：
+      结构化指标走 <b>SQL</b>，关键词走 <b>BM25</b>（用 Milvus Function 的声明式全文），语义走 <b>Dense</b>。
+    </p>
+    <ul class="plain">
+      <li><b>只按排名融合</b>：三路的分数量纲根本不可比，直接加权求和是错的，所以用 <b>RRF</b> 按排名融合，后面再挂 Cross-Encoder 精排兜底。</li>
+      <li><b>索引按规模分治</b>：语料库数据量小、要的是召回率，走 <b>HNSW</b>；八万余 chunk 的论文库内存是瓶颈，走 <b>IVF_SQ8</b> 量化省内存。同一套索引参数套所有库是在浪费其中一边。</li>
+      <li><b>权限做在向量层</b>：租户和知识版本用 <code>expr</code> 在服务端预过滤，而不是召回完再在应用层筛——后者既慢，又容易在某个分支上漏掉。</li>
+    </ul>
+    <!-- 可补充：RRF 的 k 值、三路召回的命中分布、精排的收益 -->
+
+    <h2>三、幻觉防范与记忆治理</h2>
+    <p class="bio"><b>无证据不说话。</b>每条建议必须绑定证据 ID，然后过四类确定性校验：</p>
+    <ul class="plain">
+      <li>引用越过白名单即判伪造；</li>
+      <li>数值与库内实测值比对，不一致就打回；</li>
+      <li>（另两类同属确定性规则，不依赖模型自评——因为自评在这里等于没有校验。）</li>
+    </ul>
+    <p class="bio">记忆这一侧单独设了门禁，主要防的是<b>投毒</b>：</p>
+    <ul class="plain">
+      <li><b>检索到的文档永不入记忆</b>——否则外部语料可以反向写进用户的长期记忆。</li>
+      <li>置信度不足直接丢弃；要落库必须用户确认。</li>
+      <li>存储用 <b>AES-256-GCM</b> 加密，<code>content_hash</code> 去重；注入时限定 token 预算，并在前端<b>透明展示</b>用了哪些记忆。</li>
+    </ul>
+    <!-- 可补充：四类校验的完整清单、打回率、记忆命中带来的效果变化 -->
+
+    <h2>如果重做</h2>
+    <ul class="plain">
+      <li>「拒绝」是这套系统最重要的输出之一，但拒绝之后怎么把话说清楚、让用户知道下一步该做什么，当时做得还不够。</li>
+    </ul>
+
+    <footer>
+      <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

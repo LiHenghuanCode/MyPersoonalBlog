@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Leader · 多 Agent 开发与可信交付 — 李恒桓</title>
+<meta name="description" content="跑在开发者本机的多 Agent 开发与交付平台：把 Codex / Claude Code / Qwen / Kimi 等 Coding Agent CLI 纳入统一流程，实现交付可信任、可审批、可回溯、可回滚。">
+<link rel="canonical" href="https://lihenghuan.com/projects/agent-leader.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page page-detail">
+  <main>
+    <a class="back" href="../index.html">← 返回主页</a>
+
+    <h1 class="detail-title">Agent Leader</h1>
+    <div class="detail-meta">多 Agent 开发与可信交付 <span class="when">｜ 2026.05 — 2026.07</span></div>
+    <div class="stack">Python 3.11 · FastAPI · LangGraph · Pydantic v2 · Typer · SQLite · Git Worktree · pytest</div>
+
+
+    <h2>一、业务理解</h2>
+
+    <h3>业务定义</h3>
+    <p class="bio">
+      Agent Leader 是一个跑在开发者本机的<b>多 Agent 开发和交付平台</b>。
+      它接入原生的 Codex CLI、Claude Code CLI、Qwen、Kimi Code CLI，把这些 Coding Agent CLI 纳入到以 Coding Agent 为生产主体的软件工程流程中，
+      并实现流程内交付的<b>可信任、可审批、可回溯、可回滚</b>。
+    </p>
+
+    <h3>服务用户</h3>
+    <p class="bio">同时用多个 Coding Agent CLI 的开发者。</p>
+    <p class="bio">
+      为什么会混用：实际工作里，不同任务对模型能力的要求差别很大。做架构设计、产品方案时，需要推理能力最强的模型；
+      改复杂 bug 时，需要上下文窗口大、对项目理解深的模型；而大量模式固定的重复性工作，让便宜的模型严格按写好的规范执行就够了。
+      所以团队里一定是多个 Coding CLI 混着用。
+    </p>
+
+    <h3>用户痛点</h3>
+    <div class="dims">
+      <div>
+        <span class="k">碎片化</span>
+        <span class="v">Claude Code、Codex、Qwen、Kimi 各开一个终端混着用，上下文、日志、会话 Session 都不共享，手动切换成本高。</span>
+      </div>
+      <div>
+        <span class="k">使用模板化</span>
+        <span class="v">Coding Agent 的使用过于依赖人：怎么写提示词、什么时候校正、什么时候开新窗口，已经成了固定流程。既然是固定流程，就不该每次重来一遍，不如纳入上层软件自动执行。</span>
+      </div>
+      <div>
+        <span class="k">交付内容不可信　·　主要攻关难点</span>
+        <span class="v"><b>能写代码，但无法验证是否完成了任务。</b>自我汇报不可信任，自我评审过于宽松，业务交付上存在最后一公里问题。</span>
+      </div>
+      <div>
+        <span class="k">交付过程黑盒</span>
+        <span class="v">很难追溯每次改动是谁、什么时候改的；同样的需求想在相同条件下做对照复现也做不到，流程混乱，依赖人的对话式手动编排。</span>
+      </div>
+      <div>
+        <span class="k">交付效果难评测</span>
+        <span class="v">没法量化每个 Agent 在对应场景下的业务表现，开发时的 Agent 选型依赖经验而不是实际数据。</span>
+      </div>
+    </div>
+
+    <h3>业务主流程</h3>
+    <p class="bio">
+      主流程分两个层次：<b>可变的流程（workflow）编排</b>，和<b>不变的 Stage 生命周期</b>。以一个 Workflow 为例：
+    </p>
+
+    <ol class="numbered">
+      <li>
+        <span class="st">用户半自由式交互提交 query</span>
+        用户通过 CLI / TUI / Dashboard / API 四种入口中的任意一种，按交互提示输入命令（如 <code>muxdev dev / fix / design</code>）或一句自然语言任务描述。
+        守护进程收到后建立一条 Run 记录，写入 SQLite，并返回 <code>run_id</code>。
+      </li>
+      <li>
+        <span class="st">规则引擎映射编排决策</span>
+        编排器依据三样东西做判断：可正则解析的交互指令、任务文本里风险词（认证、支付、迁移）的命中、以及仓库特征（测试目录、语言、项目标记）。
+        按规则从规则集中选取本次的 <code>workflow.yaml</code>：划分 Stage、设定依赖、标出只读阶段和人工关卡、设定修复循环上限。
+        路由器再查 Provider（Agent）评分卡为每个 Stage 分配 Agent——<b>编码 Agent 与评审 Agent 强制来自不同 provider</b>。
+      </li>
+      <li>
+        <span class="st">worktree 分支隔离</span>
+        执行引擎为本次 Run 建立 git worktree（独立分支 <code>agent-leader/&lt;run_id&gt;</code>）。后续所有改动只发生在这个副本里，主工作区不受影响；
+        非 git 仓库时退化为复制目录并补一个基线提交，保证 diff 和回滚照常可用。
+      </li>
+      <li>
+        <span class="st">调用 Agent 逐阶段执行</span>
+        执行引擎按 <code>workflow.yaml</code> 的依赖顺序推进 Stage，每个 Stage 都走同一套流程：
+        写上下文包 → 记快照 → 调用 provider 完成对应开发任务 → 解析输出 → 再记快照 → 写证据。
+        执行中有三种分支：
+        <ul class="plain">
+          <li><b>碰到审批点</b>（plan / write / shell / merge）→ 暂停，等人 approve / deny。审批绑定被审内容的 hash，内容一变，旧审批作废，重新挂起。</li>
+          <li><b>外部 CLI 卡住</b>（要登录、被限流、在等 yes/no）→ 记一条 ProviderAction，等人到对应 CLI 里处理完，回来点「已处理」后继续。</li>
+          <li><b>review 有阻塞</b> → 回到 fix 修复，最多 1～2 轮；仍不通过则标记 blocked，等人介入。</li>
+        </ul>
+      </li>
+      <li>
+        <span class="st">判定器收尾</span>
+        判定器读取整条证据事件流，依次完成证据评估（ready / reviewable / risky / blocked）、交付门禁、盲评审，
+        产出 <code>final_report.md</code>、<code>diff.patch</code>，以及每个阶段的回滚快照。
+      </li>
+      <li>
+        <span class="st">最终交付</span>
+        开发者看完报告后决定：<b>合并</b>——再走一次 merge 审批，通过后把 worktree 的改动应用回主工作区；
+        <b>回滚</b>——回退到指定阶段的快照；<b>继续</b>——处理完待办后，从断点阶段接着跑。
+      </li>
+    </ol>
+
+    <h3>关键业务拆解：可信交付的功能性要求</h3>
+    <ol class="numbered">
+      <li>
+        <b>Agent 自报和事实不一致时，系统要拦截。</b>
+        <ul class="plain">
+          <li>汇报改动某某文件，实际没改；</li>
+          <li>自述测试了，实际没有测试；</li>
+          <li>自述测试成功，实际没有成功；</li>
+          <li>为了让测试成功，自己修改或跳过了测试。</li>
+        </ul>
+      </li>
+      <li>
+        <b>Agent 越权时，系统要识别并拦截。</b>
+        <ul class="plain">
+          <li>只读阶段（评审、设计）偷偷改代码；</li>
+          <li>开发阶段自己把测试写了；</li>
+          <li>开发阶段把 Spec 文档或开发计划改了；</li>
+          <li>接到另一个 Agent 的交接文档时把交接文档改了；</li>
+          <li>把记忆改了。</li>
+        </ul>
+      </li>
+      <li><b>正常任务的交付结论能事后复核。</b></li>
+      <li><b>出问题能回滚到任意阶段之前。</b></li>
+    </ol>
+
+
+    <h2>二、技术理解</h2>
+
+    <h3>准则与重心</h3>
+    <blockquote class="pull">
+      步步落库，步步校验，关键信息人工介入。
+    </blockquote>
+    <p class="bio">
+      业务主要重心是<b>可信交付</b>，其它业务功能都必须为此让步。
+    </p>
+
+    <h3>可信交付怎么实现</h3>
+    <p class="bio">
+      它不是单点功能，而是一整套系统化机制，由六个层面协同实现：<b>编排、证明、持久化、权限、隔离、运行时行为</b>，最后由评测驱动迭代。
+    </p>
+    <div class="callout">
+      <h4>技术闭环</h4>
+      <p>
+        编排决定<b>谁在什么时候做什么</b>；隔离和权限限制 Agent <b>能动哪些东西</b>；运行时由判定层<b>亲自取证</b>，形成证据；
+        持久化保证证据和代码状态<b>不丢失、可回滚</b>；评测从证据中统计每个 Agent 和每种流程的表现，再<b>反过来调整规则引擎的映射集的调整和编排</b>。
+      </p>
+    </div>
+
+    <div class="decision">
+      <h3>2.1　多 Agent 编排协作</h3>
+      <div class="vs">去中心化协商　vs　中心化编排</div>
+      <p>可选方案有两大类：</p>
+      <ul class="plain">
+        <li><b>去中心化：</b>多个 Agent 各自提出方案，互相讨论，最终商定一个。</li>
+        <li><b>中心化：</b>由一个中心编排器决定 Agent 怎么工作。又分三种做法——静态规则引擎、动态 Agent 调度、混合式（由 Agent 规划 workflow，其余部分按 workflow 调度）。</li>
+      </ul>
+      <p class="pick">
+        <b>选择</b>中心化的<b>静态规则引擎</b>。动态 Agent 调度难以审计，同样的任务可能走出不同的调度路径，出了问题没法定位到是哪个 Agent 的责任；
+        由 Agent 规划 workflow 有同样的毛病，同一任务每次生成的 workflow 不同，难以复现。
+      </p>
+      <p class="cost">
+        <b>代价</b>灵活性差。规则覆盖不到的任务只能落到默认模板，规则集需要持续维护。
+      </p>
+    </div>
+
+    <div class="decision">
+      <h3>2.2　证据体系</h3>
+      <div class="vs">SLSA / in-toto　vs　轻量哈希链</div>
+      <ul class="plain">
+        <li><b>SLSA：</b>供应链安全标准。v1.0 定义了 Build 轨道的 L0～L3，等级越高，对构建来源证明（provenance）和构建平台的要求越严格。</li>
+        <li><b>in-toto：</b>由项目负责人签名的布局文件定义供应链步骤；每一步由执行者用自己的密钥签名记录输入和输出；验证时检查签名、步骤顺序和产物哈希。</li>
+      </ul>
+      <p>
+        这两者都是为 CI/CD 构建流水线设计的，依赖密钥分发和签名基础设施，对「本地跑一次 Agent 任务」来说太重。
+      </p>
+      <p class="pick">
+        <b>选择</b>借用它们的思想——每一步留下证明、产物用哈希串联——实现得更轻：
+      </p>
+      <ul class="plain">
+        <li>每一步的事实写入 append-only 的事件流，每条事件带上一条的哈希，形成哈希链；</li>
+        <li>每个可写阶段结束后提交一次 git commit，代码状态由 git 固化；</li>
+        <li>交付结论由确定性规则从事件流推导，<b>不采用 Agent 的自述</b>。</li>
+      </ul>
+      <p class="cost">
+        <b>局限</b>哈希链没有签名时，只能发现局部篡改，有写权限的人可以整条重写。改进方向是对链尾签名，并把哈希写入 git notes。
+      </p>
+    </div>
+
+    <div class="decision">
+      <h3>2.3　持久化</h3>
+      <div class="vs">Temporal / DBOS / LangGraph checkpointer　vs　SQLite + git commit</div>
+      <ul class="plain">
+        <li><b>Temporal：</b>把执行过程记录为 Event History，worker 崩溃后通过重放恢复到断点。生产部署需要独立服务端；开发模式可以单进程跑、用 SQLite 落盘，但官方说明不用于生产。</li>
+        <li><b>DBOS：</b>库形态，默认使用 SQLite，不需要独立服务。</li>
+        <li><b>LangGraph checkpointer：</b>按线程保存图的状态，有内存、SQLite、Postgres 等实现。</li>
+      </ul>
+      <p class="pick">
+        <b>选择</b>SQLite 记录 Run 和 Stage 的状态与事件，每个可写阶段结束提交 git commit，<b>恢复粒度定在 Stage</b>。
+        原因是 Stage 内部是一次外部 CLI 进程调用，本身无法重放，失败了只能整阶段重跑；在这个粒度上，记录每个 Stage 的完成状态和 commit 就足够，
+        不需要引入重放语义，也不需要额外部署服务。
+      </p>
+    </div>
+
+    <div class="decision">
+      <h3>2.4　权限机制</h3>
+      <div class="vs">单 CLI 权限规则　vs　多 Provider 控制面</div>
+      <p>
+        参考对象是 Claude Code 的权限规则：分 allow / ask / deny 三类，按 deny → ask → allow 的顺序判定；也可以通过 PreToolUse hook 在工具调用前加入检查。
+        在此基础上做了三件事：
+      </p>
+      <ul class="plain">
+        <li><b>审批绑定内容哈希：</b>审批对象是 spec、patch 等内容的哈希，内容一变，旧审批作废。防的是「先拿一个无害的方案通过审批，再换成别的内容执行」。</li>
+        <li><b>受保护路径：</b>spec、开发计划、已提交的测试和测试配置、交接文档、记忆文件都列为受保护路径。每个阶段结束后，判定层检查 diff 是否触及受保护路径，触及即判越权——对应上面第二条要求里列出的越权行为。</li>
+        <li><b>外部阻塞单独建模：</b>外部 CLI 的登录、限流、确认提示记为 ProviderAction，不和平台审批混在一起，平台也不替用户回答。这是同时管理多个 CLI 才会遇到的问题，单个 CLI 工具没有这一层。</li>
+      </ul>
+    </div>
+
+    <div class="decision">
+      <h3>2.5　隔离机制</h3>
+      <div class="vs">Docker 容器 / OS 级沙箱　vs　git worktree</div>
+      <ul class="plain">
+        <li><b>Docker 容器：</b>进程、文件系统、网络都能隔离，强度最高。但需要安装 Docker，Windows 上还依赖 WSL2 或 Hyper-V，启动也慢。</li>
+        <li><b>OS 级沙箱：</b>Claude Code 自带的 Bash 沙箱支持 macOS、Linux、WSL2，原生 Windows 上不可用。</li>
+        <li><b>git worktree：</b>git 自带，创建快（小仓库实测约 <span class="m">10 ms</span>），天然支持分支、diff 和回滚。</li>
+      </ul>
+      <p class="pick">
+        <b>选择</b>默认使用 git worktree：每个 Run 一个独立分支，主工作区不受影响；
+        只读阶段使用用完即删的副本，并比对阶段前后的 tree id，有改动即判违规。
+      </p>
+      <p class="cost">
+        <b>边界</b>worktree 隔离的是「改动」，不是安全沙箱，Agent 进程仍以用户身份运行。所以它要配合 provider 自带的权限模式使用，高风险任务可以切换到容器执行。
+      </p>
+    </div>
+
+    <div class="decision">
+      <h3>2.6　评测</h3>
+      <div class="vs">SWE-bench 二值信号　vs　完成度 + 过程指标</div>
+      <p>
+        SWE-bench 把补丁应用到真实仓库中运行测试，要求原本失败的测试变为通过（<b>FAIL_TO_PASS</b>），原本通过的测试不能变坏（<b>PASS_TO_PASS</b>），
+        最终给出一个通过 / 不通过的结果。我们和它一样，以真实执行结果为准，不看模型自述。
+        但单一的通过 / 不通过结果存在「蒙对也算过」的问题，所以评测除了完成度，还统计过程指标。
+      </p>
+      <p class="pick">
+        <b>做法</b>同一批任务用三种方式运行——直接调用 CLI、muxdev 单 Agent 编排、muxdev 多 Agent 编排——
+        对比完成度、质量、证据完整度、可靠性、人工介入次数、成本和耗时。总分中确定性指标占 <span class="m">80%</span>，LLM 评委占 <span class="m">20%</span>，评委可以关闭。
+      </p>
+
+      <table class="tbl">
+        <thead>
+          <tr><th>指标</th><th>直接调用 CLI</th><th>muxdev 编排</th></tr>
+        </thead>
+        <tbody>
+          <tr><th>总分</th><td>0.83</td><td class="win">0.999</td></tr>
+          <tr><th>证据置信度</th><td>0.49</td><td class="win">1.0</td></tr>
+          <tr><th>缺失证据</th><td>3 项</td><td class="win">0 项</td></tr>
+        </tbody>
+      </table>
+      <p class="tbl-note">在 mock provider 上跑 3 个任务的结果。</p>
+
+      <p class="cost">
+        <b>怎么看这组数</b>它说明的是机制能区分「有证据」和「没证据」的交付，<b>不说明模型变强了</b>。
+        另外，过程分对编排模式设了 0.55 的下限，对直接调用 CLI 只有 0.25，总分差距里有一部分是这个设定带来的——
+        看结论时应以证据置信度和缺失证据数为主。
+      </p>
+    </div>
+
+    <footer>
+      <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

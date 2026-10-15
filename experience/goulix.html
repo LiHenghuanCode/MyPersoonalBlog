@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>北京构力科技 · C++ 软件研发实习 — 李恒桓</title>
+<meta name="description" content="墨斗云插件的建筑信息化识别算法：把 3D 扫描产出的 OBJ 哑数据转成结构化 JSON，墙体识别耗时 221ms → 28ms。">
+<link rel="canonical" href="https://lihenghuan.com/experience/goulix.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page page-detail">
+  <main>
+    <a class="back" href="../index.html">← 返回主页</a>
+
+    <h1 class="detail-title">北京构力科技有限公司</h1>
+    <div class="detail-meta">C++ 软件研发实习生 · 工业软件算法 <span class="when">｜ 2025.11 — 2026.01</span></div>
+    <div class="stack">C++ · OpenMP · 计算几何 · OBJ / JSON · BimBase</div>
+
+    <h2>做这个东西的前提</h2>
+    <p class="bio">
+      墨斗云是 BimBase 旗下的插件之一，目标是面向 AI 时代做<b>优质数据的批量生产</b>——用智能识别算法成规模地替代传统人工数据标注。
+    </p>
+    <p class="bio">
+      我负责的那一块，输入是建筑 3D 扫描产出的 <b>OBJ</b>。OBJ 的麻烦在于它是渲染格式：里面只有点、线、面和材质，
+      没有任何「这是一面墙」「这是一扇窗」的语义。下游要用的却是结构化信息——构件类型、位置坐标、尺寸。
+      所以这件事本质上是<b>从几何里把语义反推出来</b>，产出一份结构化 JSON。
+    </p>
+
+    <h2>墙体识别：两阶段候选剪枝 + OpenMP 并行</h2>
+    <p class="bio">
+      最朴素的做法是对所有面两两判断关系，面数一上来就不可接受。我主导的策略是把判断拆成两段：
+      第一阶段用廉价的几何特征（朝向、包围盒、尺度）快速筛掉绝大多数不可能的候选，
+      第二阶段才对剩下的少量候选跑贵的精确判定。剪枝之后候选集已经很小，再用 <b>OpenMP</b> 把这部分摊到多核上。
+    </p>
+    <ul class="plain">
+      <li>大型模型的分类耗时从 <span class="m">221ms</span> 降到 <span class="m">28ms</span>，约 <span class="m">7.9×</span>。</li>
+      <li>先剪枝再并行，顺序很重要：如果直接并行朴素算法，加速比被核数卡住；先把算法复杂度降下来，并行才是在小的基数上再乘一次。</li>
+    </ul>
+    <!-- 可补充：剪枝用的具体几何判据、并行的任务划分粒度、怎么验证剪枝没有漏掉正确候选 -->
+
+    <h2>哈希表的 rehash 开销</h2>
+    <p class="bio">
+      识别过程里要用 <code>std::unordered_map</code> 做构件索引。默认行为是边插边扩容，每次扩容都要把已有元素全部重新散列，
+      这部分开销在大型模型上相当可观。
+    </p>
+    <ul class="plain">
+      <li>按模型规模预估容量，提前一次性分配，把 rehash 次数从 <span class="m">1340</span> 次压到 <span class="m">15</span> 次。</li>
+      <li>容量是估的，所以留了余量——估小了会退回到边插边扩容，估大了只是多占一点内存，这里后者的代价明显更便宜。</li>
+    </ul>
+    <!-- 可补充：预估容量的公式/依据，以及最终内存占用的变化 -->
+
+    <h2>带走的东西</h2>
+    <ul class="plain">
+      <li>工业软件里的性能问题，优先级通常是<b>算法 → 数据结构 → 并行</b>，顺序搞反了收益会被上一层吃掉。</li>
+      <li>几何数据没有语义保证，算法必须对脏输入（重复面、朝向不一致、尺度异常）有明确的处理口径，不能默认输入是干净的。</li>
+    </ul>
+
+    <footer>
+      <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>
