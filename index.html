@@ -6,11 +6,14 @@
   站点结构：
     index.html              本页
     assets/style.css        全站共享样式（配色改 :root 的 --accent，字体改 --font-serif / --font-sans）
-    assets/reading.js       右侧「最近在读」的数据源 + 渲染
+    assets/reading.js       右侧「最近在读」的数据源 + 渲染（「最近在学」也用这里的渲染）
+    assets/courses.js       右侧「最近在学」的数据源
     experience/*.html       实习详情页
     projects/*.html         项目详情页
     reading/index.html      阅读汇总页
     reading/_template.html  阅读笔记模板，复制它来写新笔记
+    courses/index.html      课程汇总页
+    courses/_template.html  课程笔记模板，复制它来写新笔记
   ============================================
 -->
 <html lang="zh-CN">
@@ -81,7 +84,7 @@
         提取墙、窗等构件的位置坐标与尺寸信息。
       </div>
       <ul class="plain">
-        <li>主导<b>两阶段候选剪枝 + OpenMP 并行</b>的墙体识别策略，大型模型分类耗时从 <span class="m">221ms</span> 降到 <span class="m">28ms</span>（<span class="m">7.9×</span>）。</li>
+        <li>负责算法集成与端到端测试，<b>提前两周交付</b>；测试中发现延迟偏高，主导<b>空间哈希分桶剪枝 + OpenMP 并行</b>优化，大型模型墙体聚类耗时从 <span class="m">206ms</span> 降到 <span class="m">28ms</span>（约 <span class="m">7.4×</span>），产品最终落地「快速 / 精确」双识别模式。</li>
         <li>按预估容量提前分配，把 <code>std::unordered_map</code> 的 rehash 次数从 <span class="m">1340</span> 次压到 <span class="m">15</span> 次。</li>
       </ul>
       <a class="more" href="experience/goulix.html">详细描述 →</a>
@@ -139,10 +142,19 @@
   </main>
 
   <aside class="rail">
-    <h3>最近在读</h3>
-    <ul class="reading" data-reading data-limit="5"></ul>
-    <a class="all" href="reading/index.html">全部 →</a>
-    <div class="note">论文和技术文章的读后笔记，点标题进笔记页。</div>
+    <section class="rail-block">
+      <h3>最近在读</h3>
+      <ul class="reading" data-reading data-limit="5"></ul>
+      <a class="all" href="reading/index.html">全部 →</a>
+      <div class="note">论文和技术文章的读后笔记，点标题进笔记页。</div>
+    </section>
+
+    <section class="rail-block">
+      <h3>最近在学</h3>
+      <ul class="reading" data-courses data-limit="5"></ul>
+      <a class="all" href="courses/index.html">全部 →</a>
+      <div class="note">公开课的学习笔记，点标题进笔记页。</div>
+    </section>
   </aside>
 
   <footer>
@@ -151,6 +163,7 @@
   </footer>
 
 </div>
+<script src="assets/courses.js"></script>
 <script src="assets/reading.js"></script>
 </body>
 </html>

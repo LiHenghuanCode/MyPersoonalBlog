@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>北京构力科技 · C++ 软件研发实习 — 李恒桓</title>
-<meta name="description" content="墨斗云插件的建筑信息化识别算法：把 3D 扫描产出的 OBJ 哑数据转成结构化 JSON，墙体识别耗时 221ms → 28ms。">
+<meta name="description" content="把构件识别算法集成进 BimBase 旗下的墨斗云插件，提前两周交付；端到端测试中发现延迟问题，主导墙体聚类优化，耗时 206ms → 28ms（约 7.4×），最终产品落地「快速识别 / 精确识别」双模式。">
 <link rel="canonical" href="https://lihenghuan.com/experience/goulix.html">
 <link rel="stylesheet" href="../assets/style.css">
 </head>
@@ -15,45 +15,194 @@
 
     <h1 class="detail-title">北京构力科技有限公司</h1>
     <div class="detail-meta">C++ 软件研发实习生 · 工业软件算法 <span class="when">｜ 2025.11 — 2026.01</span></div>
-    <div class="stack">C++ · OpenMP · 计算几何 · OBJ / JSON · BimBase</div>
+    <div class="stack">C++17 · OpenMP · 计算几何 · 空间哈希 · 并查集 · OBJ / JSON · BimBase</div>
 
-    <h2>做这个东西的前提</h2>
+
+    <h2>快速介绍</h2>
+    <div class="dims">
+      <div>
+        <span class="k">项目目标</span>
+        <span class="v">公司要在旗舰软件 BimBase 的墨斗云插件上落地一套构件智能识别算法，替代传统人工标注，<b>批量生产建筑领域的优质数据</b>。</span>
+      </div>
+      <div>
+        <span class="k">我做了什么</span>
+        <span class="v">负责把构件识别算法<b>集成进软件</b>，并配合产品经理做<b>端到端测试</b>；测试中发现延迟偏高后，主导并协调算法团队完成性能优化。</span>
+      </div>
+      <div>
+        <span class="k">结果</span>
+        <span class="v">
+          集成工作<b>提前两周交付</b>；墙体聚类（Wall Clustering）这一步在 30.9 万三角面的大型模型上耗时
+          <span class="m">206ms → 28ms</span>，约 <span class="m">7.4×</span>；
+          最终产品采纳了<b>「快速识别 / 精确识别」双模式</b>方案。
+        </span>
+      </div>
+    </div>
+
+
+    <h2>业务背景</h2>
     <p class="bio">
       墨斗云是 BimBase 旗下的插件之一，目标是面向 AI 时代做<b>优质数据的批量生产</b>——用智能识别算法成规模地替代传统人工数据标注。
     </p>
     <p class="bio">
-      我负责的那一块，输入是建筑 3D 扫描产出的 <b>OBJ</b>。OBJ 的麻烦在于它是渲染格式：里面只有点、线、面和材质，
+      识别算法的输入是建筑 3D 扫描产出的 <b>OBJ</b>。OBJ 是渲染格式：里面只有顶点，以及「哪三个点构成一个三角面」，
       没有任何「这是一面墙」「这是一扇窗」的语义。下游要用的却是结构化信息——构件类型、位置坐标、尺寸。
       所以这件事本质上是<b>从几何里把语义反推出来</b>，产出一份结构化 JSON。
     </p>
-
-    <h2>墙体识别：两阶段候选剪枝 + OpenMP 并行</h2>
     <p class="bio">
-      最朴素的做法是对所有面两两判断关系，面数一上来就不可接受。我主导的策略是把判断拆成两段：
-      第一阶段用廉价的几何特征（朝向、包围盒、尺度）快速筛掉绝大多数不可能的候选，
-      第二阶段才对剩下的少量候选跑贵的精确判定。剪枝之后候选集已经很小，再用 <b>OpenMP</b> 把这部分摊到多核上。
+      识别算法由算法团队开发，我的工作是把它接进软件、跑通端到端流程，并和产品经理一起按真实用户的使用路径做测试。
+      集成部分比计划提前两周完成。
     </p>
-    <ul class="plain">
-      <li>大型模型的分类耗时从 <span class="m">221ms</span> 降到 <span class="m">28ms</span>，约 <span class="m">7.9×</span>。</li>
-      <li>先剪枝再并行，顺序很重要：如果直接并行朴素算法，加速比被核数卡住；先把算法复杂度降下来，并行才是在小的基数上再乘一次。</li>
-    </ul>
-    <!-- 可补充：剪枝用的具体几何判据、并行的任务划分粒度、怎么验证剪枝没有漏掉正确候选 -->
 
-    <h2>哈希表的 rehash 开销</h2>
+
+    <h2>问题是怎么发现的</h2>
+    <ol class="numbered">
+      <li>
+        <span class="st">端到端测试：用户侧延迟明显偏高</span>
+        和产品经理按用户路径走流程时，大模型上的识别等待时间明显偏长，体验上不可接受。
+        算法团队此前只验证过识别效果，没有做过细粒度的性能测试。
+      </li>
+      <li>
+        <span class="st">把算法拆出来做离线测试</span>
+        第一个要回答的问题是：慢在算法本身，还是慢在宿主软件。我把识别算法从软件里拆出来单独跑，
+        结果<b>离线耗时和集成后的耗时差距不大</b>——瓶颈在算法内部，不在软件集成层。
+      </li>
+      <li>
+        <span class="st">离线埋点，定位到具体阶段</span>
+        在离线版本里分阶段埋点计时，同时找算法团队把原算法的思路和流程过了一遍，最终定位到<b>墙体聚类（Wall Clustering）</b>这一步。
+      </li>
+      <li>
+        <span class="st">看清原算法在做什么</span>
+        原算法本质上是一个<b>基于几何特征的分类</b>：对空间中的三角面<b>两两比较</b>——空间位置、法向量、是否邻接，以及其他建筑空间特征——
+        判断两个面是否属于同一面墙。两两比较意味着 <code>O(N²)</code>，大型模型上约 <span class="m">1.5 亿</span>次比较。
+      </li>
+    </ol>
+
+
+    <h2>优化：先剪枝，再并行</h2>
     <p class="bio">
-      识别过程里要用 <code>std::unordered_map</code> 做构件索引。默认行为是边插边扩容，每次扩容都要把已有元素全部重新散列，
-      这部分开销在大型模型上相当可观。
+      思路很直接：大多数三角面在空间上隔得很远，根本不可能是同一面墙，却仍然被拿出来比了一遍。
+      所以要让每个三角面<b>只和自己附近的三角面比较</b>，而不是和全部三角面比较。
     </p>
-    <ul class="plain">
-      <li>按模型规模预估容量，提前一次性分配，把 rehash 次数从 <span class="m">1340</span> 次压到 <span class="m">15</span> 次。</li>
-      <li>容量是估的，所以留了余量——估小了会退回到边插边扩容，估大了只是多占一点内存，这里后者的代价明显更便宜。</li>
-    </ul>
-    <!-- 可补充：预估容量的公式/依据，以及最终内存占用的变化 -->
+
+    <ol class="numbered">
+      <li>
+        <span class="st">第一层：按朝向和平面粗分桶</span>
+        先按三角面法向量的水平方向、以及三角面所在平面到原点的距离做一次粗分类，
+        把明显不可能属于同一面墙的面分到不同的 wall bin 里。
+      </li>
+      <li>
+        <span class="st">第二层：bin 内建局部网格，只比邻近格</span>
+        在每个 wall bin 内，根据墙面法向量建立局部二维坐标系，把三角面投影成平面坐标，再划成网格，
+        用 <code>std::unordered_map&lt;CellKey, std::vector&lt;TriangleId&gt;&gt;</code> 记录每个格子里有哪些面。
+        之后每个面只和<b>同格及相邻格</b>里的面做几何判断，判定为同一面墙的用并查集（DSU）合并。
+        <ul class="plain">
+          <li>比较次数：约 <span class="m">1.5 亿</span> → <span class="m">2720 万</span>。</li>
+          <li>耗时：约 <span class="m">206.6ms</span> → <span class="m">69.2ms</span>，约 <span class="m">3.0×</span>。</li>
+        </ul>
+      </li>
+      <li>
+        <span class="st">第三层：bin 之间互不干扰，OpenMP 并行</span>
+        分桶之后，不同 wall bin 之间没有任何共享状态：每个 bin 有自己的 cell map、自己的 DSU、自己的中间结果。
+        于是用 <code>#pragma omp parallel for schedule(dynamic, 1)</code> 按 bin 并行，最后串行合并结果。
+        没有共享哈希表、没有共享 DSU，也就不需要锁。
+        <ul class="plain">
+          <li>4 线程下耗时：<span class="m">69.2ms</span> → <span class="m">28ms</span>，约 <span class="m">2.4×</span>。</li>
+          <li>用 <code>dynamic</code> 调度是因为各个 bin 大小差别很大，静态均分容易让某个线程拖尾。</li>
+        </ul>
+      </li>
+    </ol>
+
+    <table class="tbl">
+      <thead>
+        <tr><th>版本（Large，30.9 万三角面）</th><th>比较次数</th><th>Wall Clustering 耗时</th><th>相对原算法</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>原算法：两两比较</th><td>≈ 1.5 亿</td><td>≈ 206.6 ms</td><td>1.0×</td></tr>
+        <tr><th>+ 空间哈希分桶剪枝</th><td>2720 万</td><td>≈ 69.2 ms</td><td>≈ 3.0×</td></tr>
+        <tr><th>+ OpenMP 4 线程</th><td>2720 万</td><td class="win">≈ 28 ms</td><td class="win">≈ 7.4×</td></tr>
+      </tbody>
+    </table>
+    <p class="tbl-note">取 10 次正式测量的中位数（另有 3 次 warm-up），环境为 WSL2 / i7-14650HX（分配 4 逻辑核）/ GCC 13.3 -O3。WSL 下不同轮次有几个百分点的波动。</p>
+
+    <p class="bio">
+      顺序很重要：如果直接并行朴素算法，加速比被核数卡死；先把比较次数降下来，并行才是在小的基数上再乘一次。
+    </p>
+
+    <div class="decision">
+      <h3>为什么用 OpenMP</h3>
+      <div class="vs">OpenMP　vs　std::thread / oneTBB / C++17 Parallel STL</div>
+      <ul class="plain">
+        <li><b>std::thread：</b>C++17 没有标准线程池，任务队列、负载均衡、线程生命周期都得自己写，基础设施代码很多，但不改变核心算法。</li>
+        <li><b>oneTBB：</b>work-stealing 对不规则任务很合适，但要引入额外依赖。</li>
+        <li><b>Parallel STL：</b>在 GCC/libstdc++ 下的后端支持不理想，也不好表达「每个 bin 各自维护 cell map 和 DSU」这种结构。</li>
+      </ul>
+      <p class="pick">
+        <b>选择</b>OpenMP。并行边界本来就是「一个 bin 一个任务」，一行 pragma 就能表达；线程数和调度策略可以直接调，
+        不需要额外依赖，输出也能确定性地合并。
+      </p>
+      <p class="cost">
+        <b>边界</b>如果以后出现大量超大且分布不均的 bin，需要在 bin 内再拆任务，oneTBB 的任务模型会更合适。
+      </p>
+    </div>
+
+
+    <h2>一个反直觉的结果：rehash 少了，时间没少</h2>
+    <p class="bio">
+      分桶过程中 <code>std::unordered_map</code> 会边插边扩容。我按插入规模预估容量、提前 <code>reserve</code>，
+      rehash 次数确实大幅下降（统计方式：插入过程中观察到 <code>bucket_count()</code> 变化的次数）：
+    </p>
+    <table class="tbl">
+      <thead>
+        <tr><th>数据集</th><th>三角面数</th><th>rehash（不预分配）</th><th>rehash（reserve）</th><th>耗时变化</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>Large</th><td>309,630</td><td>1340</td><td class="win">15</td><td>约 −0.8%</td></tr>
+        <tr><th>Medium</th><td>14,238</td><td>167</td><td class="win">10</td><td>约 −0.4% ~ −2%</td></tr>
+        <tr><th>Small</th><td>1,764</td><td>157</td><td>42</td><td>持平或略慢</td></tr>
+      </tbody>
+    </table>
+    <p class="bio">
+      但耗时几乎没变。rehash 次数减少了约 <span class="m">98.9%</span>，wall time 只改善了不到 1%，小模型上甚至更慢。
+      原因是 <code>reserve</code> 本身也有代价：bucket 初始化、bucket 数过多带来的缓存压力和内存占用。
+      之后又对不同 reserve / load factor 参数做了实验，结论是：<b>rehash 次数不等于耗时</b>，这一项不应该写成性能收益，只是一个被测量证伪的猜想。
+    </p>
+
+
+    <h2>比技术更难的部分：让方案被接受</h2>
+    <p class="bio">
+      优化方案刚拿出来的时候，算法团队并不接受，他们的判断是：慢是因为宿主软件的历史代码太重，拖累了算法。
+      即便我给出了离线测试数据和详细的实现思路，讨论也推进不下去。
+    </p>
+    <p class="bio">
+      后来我反思，问题不在方案本身，而在<b>我的表达方式和切入角度</b>。从对方的视角看，这份方案等于在质疑他们的工作成果，
+      甚至是在质疑专业能力。这样提出来，对方很难接。
+    </p>
+    <p class="bio">
+      但这个优化我必须推动——产品经理一直在跟我沟通，希望把延迟降下来。所以我换了思路，去找一个<b>双赢的方案</b>：
+    </p>
+    <ol class="numbered">
+      <li>
+        <span class="st">补充对比测试</span>
+        不只比速度，把识别精度也一起比。结果很清楚：<b>原算法慢，但精度高；新算法快，但精度有损失</b>。两者各有适用场景，并不是谁替代谁。
+        <!-- 可补充：精度的具体衡量口径和数字（例如墙体召回率 / 与人工标注的一致率） -->
+      </li>
+      <li>
+        <span class="st">把结论写成报告，交给各方讨论</span>
+        报告的立场从「原算法有性能问题」变成「两套流程各有优势，产品可以按场景选」。
+      </li>
+      <li>
+        <span class="st">最终落地：双模式</span>
+        经过产品、算法和开发几方讨论，软件同时提供两种服务——<b>快速识别</b>走新流程，<b>精确识别</b>保留原算法流程，由用户按需选择。
+      </li>
+    </ol>
+
 
     <h2>带走的东西</h2>
     <ul class="plain">
-      <li>工业软件里的性能问题，优先级通常是<b>算法 → 数据结构 → 并行</b>，顺序搞反了收益会被上一层吃掉。</li>
-      <li>几何数据没有语义保证，算法必须对脏输入（重复面、朝向不一致、尺度异常）有明确的处理口径，不能默认输入是干净的。</li>
+      <li><b>先分层定位，再谈优化。</b>把算法从软件里拆出来做离线对照，一步就排除了「宿主软件拖慢算法」这个假设，后面的讨论才有共同的事实基础。</li>
+      <li><b>性能优化的顺序是算法 → 数据结构 → 并行。</b>顺序搞反了，收益会被上一层吃掉。</li>
+      <li><b>每个优化都要用数据证实。</b>reserve 那一项直觉上应该有效，测出来却几乎没用，测量本身比猜想重要。</li>
+      <li><b>技术方案也是沟通方案。</b>同一组数据，表述成「你的算法有问题」和「两套流程各有优势」，结局完全不同。</li>
     </ul>
 
     <footer>

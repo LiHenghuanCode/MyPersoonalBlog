@@ -33,12 +33,16 @@ window.READING = [
   }
 ];
 
-/* ---------- 渲染 ---------- */
+/* ---------- 渲染 ----------
+   「最近在读」和「最近在学」共用这一个渲染函数：
+     data-reading  → window.READING（本文件）
+     data-courses  → window.COURSES（assets/courses.js）
+   -------------------------------------------------------- */
 (function () {
-  function render(el, opts) {
+  function render(el, items, opts) {
     opts = opts || {};
     var base = opts.base || "";
-    var items = window.READING || [];
+    items = items || [];
     if (opts.limit) items = items.slice(0, opts.limit);
 
     el.textContent = "";
@@ -69,7 +73,7 @@ window.READING = [
         o.href = it.orig;
         o.target = "_blank";
         o.rel = "noopener";
-        o.textContent = "原文 ↗";
+        o.textContent = opts.origText || "原文 ↗";
         meta.appendChild(o);
       }
       li.appendChild(meta);
@@ -77,16 +81,23 @@ window.READING = [
     });
   }
 
-  // 自动渲染：给 <ul> 加 data-reading 即可
-  //   data-reading       必需
-  //   data-base="../"    页面相对站点根目录的前缀
-  //   data-limit="5"     只显示前 N 条
+  // 自动渲染：给 <ul> 加 data-reading 或 data-courses 即可
+  //   data-reading / data-courses   必需，二选一，决定用哪份数据
+  //   data-base="../"               页面相对站点根目录的前缀
+  //   data-limit="5"                只显示前 N 条
+  var SOURCES = {
+    "data-reading": { data: function () { return window.READING; }, origText: "原文 ↗" },
+    "data-courses": { data: function () { return window.COURSES; }, origText: "主页 ↗" }
+  };
   document.addEventListener("DOMContentLoaded", function () {
-    var nodes = document.querySelectorAll("[data-reading]");
-    Array.prototype.forEach.call(nodes, function (el) {
-      render(el, {
-        base: el.getAttribute("data-base") || "",
-        limit: parseInt(el.getAttribute("data-limit"), 10) || 0
+    Object.keys(SOURCES).forEach(function (attr) {
+      var nodes = document.querySelectorAll("[" + attr + "]");
+      Array.prototype.forEach.call(nodes, function (el) {
+        render(el, SOURCES[attr].data(), {
+          origText: SOURCES[attr].origText,
+          base: el.getAttribute("data-base") || "",
+          limit: parseInt(el.getAttribute("data-limit"), 10) || 0
+        });
       });
     });
   });
