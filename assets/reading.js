@@ -11,11 +11,25 @@
    ============================================================ */
 window.READING = [
   {
-    title: "示例：这条怎么写（看一眼就删）",
-    source: "站点说明",
+    title: "美团技术团队 Agent 评测白皮书",
+    source: "美团技术团队",
     date: "2026-10",
-    note: "reading/_template.html",
+    note: "reading/meituan-agent-eval.html",
     orig: ""
+  },
+  {
+    title: "aliyun / ai-agent-handbook",
+    source: "阿里云 · GitHub",
+    date: "2026-10",
+    note: "reading/aliyun-agent-handbook.html",
+    orig: "https://github.com/aliyun/ai-agent-handbook"
+  },
+  {
+    title: "深度解析 Jev 模型：如何快速做结构化决策",
+    source: "微信公众号",
+    date: "2026-10",
+    note: "reading/jev-model.html",
+    orig: "https://mp.weixin.qq.com/s/OLWHlE9HAiZKFrz2WgjWcA"
   }
 ];
 

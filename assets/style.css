@@ -397,3 +397,7 @@ table.tbl tbody th {
 table.tbl td { color: var(--ink); font-variant-numeric: tabular-nums; }
 table.tbl td.win { color: var(--accent); font-weight: 600; }
 p.tbl-note { font-size: 12.5px; color: var(--faint); margin-bottom: 14px; }
+
+/* 笔记待补的提示 */
+p.todo { color: var(--faint); font-size: 13.5px; margin-bottom: 14px; }
+.unread { font-size: 12.5px; color: var(--faint); font-family: var(--font-sans); }
