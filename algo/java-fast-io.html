@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Java 刷题：高效输入输出与空间复用 — 算法思考 · 李恒桓</title>
+<meta name="description" content="Java 刷题的输入输出与空间写法：Scanner 与 BufferedReader + StreamTokenizer + PrintWriter 的对比，全局静态数组复用，以及一份读到 EOF 的统一模板。">
+<link rel="canonical" href="https://lihenghuan.com/algo/java-fast-io.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page page-detail">
+  <main>
+    <a class="back" href="index.html">← 返回算法思考</a>
+
+    <h1 class="detail-title">Java 刷题：高效输入输出与空间复用</h1>
+    <div class="detail-meta">Java · 刷题模板 <span class="when">｜ 写于 2026.10</span></div>
+    <div class="stack">BufferedReader · StreamTokenizer · PrintWriter · 静态数组</div>
+
+    <p class="bio" style="margin-top:18px">
+      在 ACM 模式下用 Java 刷题，算法写对了也可能因为读写太慢或者内存开销太大超时。
+      这篇用同一道题对比几种写法，最后整理成一份统一模板。
+    </p>
+
+    <h2>题目：多组矩阵求和</h2>
+    <p class="bio">第一行是数据组数；每组先给行数 n 和列数 m，接着是 n 行、每行 m 个整数。每组输出矩阵元素之和。</p>
+
+    <p class="code-label">输入</p>
+<pre class="code io">3
+4 3
+1 2 3
+4 5 6
+7 8 9
+2 5 8
+1 1
+5
+2 2
+3 3
+4 4</pre>
+    <ul class="plain">
+      <li>第 1 行 <code>3</code>：一共 3 组。</li>
+      <li>第一组 <code>4 3</code>：4 行 3 列，后面 4 行是矩阵（最后一行是 <code>2 5 8</code>）。</li>
+      <li>第二组 <code>1 1</code>：1 行 1 列，矩阵只有 <code>5</code>。</li>
+      <li>第三组 <code>2 2</code>：2 行 2 列。</li>
+    </ul>
+
+    <p class="code-label">输出（每组矩阵元素之和）</p>
+<pre class="code io">60
+5
+14</pre>
+
+
+    <h2>一、高效输入输出</h2>
+
+    <h3>1. Scanner + System.out <span class="tag-bad">低效</span></h3>
+    <pre class="code">import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int t = sc.nextInt();
+        for (int k = 0; k &lt; t; k++) {
+            int n = sc.nextInt();
+            int m = sc.nextInt();
+            int[][] mat = new int[n][m];
+            for (int i = 0; i &lt; n; i++) {
+                for (int j = 0; j &lt; m; j++) {
+                    mat[i][j] = sc.nextInt();
+                }
+            }
+            System.out.println(sum(mat, n, m));
+        }
+        sc.close();
+    }
+
+    public static int sum(int[][] mat, int n, int m) {
+        int ans = 0;
+        for (int i = 0; i &lt; n; i++) {
+            for (int j = 0; j &lt; m; j++) {
+                ans += mat[i][j];
+            }
+        }
+        return ans;
+    }
+}</pre>
+
+    <h3>2. BufferedReader + StreamTokenizer + PrintWriter <span class="tag-good">高效</span></h3>
+    <pre class="code">import java.io.*;
+
+public class Main {
+    public static int MAXN = 101;
+    public static int MAXM = 101;
+    public static int[][] mat = new int[MAXN][MAXM];
+    public static int n, m;
+
+    public static void main(String[] args) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        StreamTokenizer in = new StreamTokenizer(br);
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(System.out));
+        in.nextToken();
+        int t = (int) in.nval;
+        for (int k = 0; k &lt; t; k++) {
+            in.nextToken();
+            n = (int) in.nval;
+            in.nextToken();
+            m = (int) in.nval;
+            for (int i = 0; i &lt; n; i++) {
+                for (int j = 0; j &lt; m; j++) {
+                    in.nextToken();
+                    mat[i][j] = (int) in.nval;
+                }
+            }
+            out.println(sum());
+        }
+        out.flush();
+        out.close();
+        br.close();
+    }
+
+    public static int sum() {
+        int ans = 0;
+        for (int i = 0; i &lt; n; i++) {
+            for (int j = 0; j &lt; m; j++) {
+                ans += mat[i][j];
+            }
+        }
+        return ans;
+    }
+}</pre>
+
+    <h3>3. BufferedReader 按行读 + PrintWriter <span class="tag-good">高效</span></h3>
+    <pre class="code">import java.io.*;
+
+public class Main {
+    public static int MAXN = 101;
+    public static int MAXM = 101;
+    public static long[][] mat = new long[MAXN][MAXM];
+    public static int n, m;
+
+    public static void main(String[] args) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(System.out));
+        int t = Integer.parseInt(br.readLine().trim());
+        for (int k = 0; k &lt; t; k++) {
+            String[] nm = br.readLine().trim().split(" +");
+            n = Integer.parseInt(nm[0]);
+            m = Integer.parseInt(nm[1]);
+            for (int i = 0; i &lt; n; i++) {
+                String[] row = br.readLine().trim().split(" +");
+                for (int j = 0; j &lt; m; j++) {
+                    mat[i][j] = Long.parseLong(row[j]);
+                }
+            }
+            out.println(sum());
+        }
+        out.flush();
+        out.close();
+        br.close();
+    }
+
+    public static long sum() {
+        long ans = 0;
+        for (int i = 0; i &lt; n; i++) {
+            for (int j = 0; j &lt; m; j++) {
+                ans += mat[i][j];
+            }
+        }
+        return ans;
+    }
+}</pre>
+
+    <div class="callout">
+      <h4>差别在哪</h4>
+      <p><b>Scanner</b> 每次 <code>nextInt()</code> 都要做一次正则匹配，数据量到十万、百万级别时会明显变慢。</p>
+      <p><b>StreamTokenizer</b> 直接在缓冲字符流上切 token，数字解析好放进 <code>nval</code>；<b>PrintWriter</b> 先把输出写进缓冲区，最后统一 <code>flush()</code>，比逐行打印快得多。</p>
+      <p><b>什么时候用第 3 种：</b><code>nval</code> 是 <code>double</code>，超过 2<sup>53</sup> 的整数会丢精度，读字符串也不方便。数值可能超出这个范围（比如 long 的大数）或者要读字符串时，就按行读，再自己 <code>parseLong</code> / <code>split</code>。</p>
+    </div>
+
+
+    <h2>二、空间高效</h2>
+    <p class="bio">大空间用<b>全局静态空间</b>，复用数组，不要频繁申请。</p>
+
+    <h3>1. 临时动态空间 <span class="tag-bad">低效</span></h3>
+    <pre class="code">import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Main {
+    public static void main(String[] args) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        StreamTokenizer in = new StreamTokenizer(br);
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(System.out));
+        in.nextToken();
+        int t = (int) in.nval;
+        for (int k = 0; k &lt; t; k++) {
+            in.nextToken();
+            int n = (int) in.nval;
+            in.nextToken();
+            int m = (int) in.nval;
+            List&lt;List&lt;Integer&gt;&gt; mat = new ArrayList&lt;&gt;();
+            for (int i = 0; i &lt; n; i++) {
+                List&lt;Integer&gt; row = new ArrayList&lt;&gt;();
+                for (int j = 0; j &lt; m; j++) {
+                    in.nextToken();
+                    row.add((int) in.nval);
+                }
+                mat.add(row);
+            }
+            out.println(sum(mat, n, m));
+        }
+        out.flush();
+        out.close();
+        br.close();
+    }
+
+    public static int sum(List&lt;List&lt;Integer&gt;&gt; mat, int n, int m) {
+        int ans = 0;
+        for (int i = 0; i &lt; n; i++) {
+            List&lt;Integer&gt; row = mat.get(i);
+            for (int j = 0; j &lt; m; j++) {
+                ans += row.get(j);
+            }
+        }
+        return ans;
+    }
+}</pre>
+
+    <h3>2. 全局静态空间 <span class="tag-good">高效</span></h3>
+    <pre class="code">import java.io.*;
+
+public class Main {
+    public static int MAXN = 101;
+    public static int MAXM = 101;
+    public static int[][] mat = new int[MAXN][MAXM];
+    public static int n, m;
+
+    public static void main(String[] args) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        StreamTokenizer in = new StreamTokenizer(br);
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(System.out));
+        in.nextToken();
+        int t = (int) in.nval;
+        for (int k = 0; k &lt; t; k++) {
+            in.nextToken();
+            n = (int) in.nval;
+            in.nextToken();
+            m = (int) in.nval;
+            for (int i = 0; i &lt; n; i++) {
+                for (int j = 0; j &lt; m; j++) {
+                    in.nextToken();
+                    mat[i][j] = (int) in.nval;
+                }
+            }
+            out.println(sum());
+        }
+        out.flush();
+        out.close();
+        br.close();
+    }
+
+    public static int sum() {
+        int ans = 0;
+        for (int i = 0; i &lt; n; i++) {
+            for (int j = 0; j &lt; m; j++) {
+                ans += mat[i][j];
+            }
+        }
+        return ans;
+    }
+}</pre>
+
+    <p class="bio">
+      低效写法每组数据都新建一批 <code>ArrayList</code>，每个元素还要装箱成 <code>Integer</code>；
+      高效写法按题目上限一次性开好 <code>int[][]</code>，每组只用前 n 行 m 列，空间只申请一次。
+    </p>
+
+
+    <h2>三、刷题统一模板</h2>
+    <pre class="code">import java.io.*;
+
+public class Main {
+    public static int MAXN = 100001;
+    public static int[] arr = new int[MAXN];
+    public static int n;
+
+    public static void main(String[] args) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+        StreamTokenizer in = new StreamTokenizer(br);
+        PrintWriter out = new PrintWriter(new OutputStreamWriter(System.out));
+        while (in.nextToken() != StreamTokenizer.TT_EOF) {
+            n = (int) in.nval;
+            for (int i = 0; i &lt; n; i++) {
+                in.nextToken();
+                arr[i] = (int) in.nval;
+            }
+            out.println(compute());
+        }
+        out.flush();
+        out.close();
+        br.close();
+    }
+
+    public static int compute() {
+        int ans = 0;
+        for (int i = 0; i &lt; n; i++) {
+            ans += arr[i];
+        }
+        return ans;
+    }
+}</pre>
+    <p class="bio">
+      这个模板不读组数，一直读到输入结束（<code>TT_EOF</code>）。题目先给组数时，就按<b>一、2</b> 或<b>二、2</b> 的写法来。
+    </p>
+
+    <footer>
+      <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

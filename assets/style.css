@@ -222,7 +222,7 @@ ul.reading.full .meta { font-size: 13px; }
   .rail h3 { margin-top: 10px; }
 }
 @media (max-width: 720px) {
-  .page { grid-template-columns: 1fr; }
+  .page { grid-template-columns: minmax(0, 1fr); }  /* minmax(0,…) 防止宽代码块把整页撑宽 */
   .rail { grid-column: 1; margin-top: 18px; }
   h1.detail-title { font-size: 22px; }
   footer { flex-direction: column; gap: 4px; }
@@ -404,3 +404,55 @@ p.todo { color: var(--faint); font-size: 13.5px; margin-bottom: 14px; }
 
 /* 右侧栏多个区块（最近在读 / 最近在学）之间的间距 */
 .rail-block + .rail-block { margin-top: 34px; }
+
+/* ---------- 左侧栏「算法思考」 ---------- */
+.sidebar .side-block { margin-top: 30px; }
+.sidebar .side-block h3 {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: 14px;
+}
+.sidebar a.all {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--accent);
+}
+
+/* ---------- 代码块（算法文章用） ---------- */
+pre.code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: #f2f0ea;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 3px;
+  padding: 12px 14px;
+  margin: 10px 0 18px;
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 4;
+}
+pre.code.io { border-left-color: var(--line); }
+p.code-label {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  letter-spacing: .04em;
+  color: var(--faint);
+  margin: 14px 0 -4px;
+}
+.tag-bad, .tag-good {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  padding: 1px 7px;
+  border-radius: 3px;
+  margin-left: 8px;
+  vertical-align: 2px;
+}
+.tag-bad  { color: var(--faint); border: 1px solid var(--line); }
+.tag-good { color: #fff; background: var(--accent); }

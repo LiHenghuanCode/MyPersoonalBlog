@@ -34,9 +34,10 @@ window.READING = [
 ];
 
 /* ---------- 渲染 ----------
-   「最近在读」和「最近在学」共用这一个渲染函数：
+   「最近在读」「最近在学」「算法思考」共用这一个渲染函数：
      data-reading  → window.READING（本文件）
      data-courses  → window.COURSES（assets/courses.js）
+     data-algo     → window.ALGO（assets/algo.js）
    -------------------------------------------------------- */
 (function () {
   function render(el, items, opts) {
@@ -81,13 +82,14 @@ window.READING = [
     });
   }
 
-  // 自动渲染：给 <ul> 加 data-reading 或 data-courses 即可
-  //   data-reading / data-courses   必需，二选一，决定用哪份数据
+  // 自动渲染：给 <ul> 加 data-reading / data-courses / data-algo 即可
+  //   data-reading / data-courses / data-algo   必需，三选一，决定用哪份数据
   //   data-base="../"               页面相对站点根目录的前缀
   //   data-limit="5"                只显示前 N 条
   var SOURCES = {
     "data-reading": { data: function () { return window.READING; }, origText: "原文 ↗" },
-    "data-courses": { data: function () { return window.COURSES; }, origText: "主页 ↗" }
+    "data-courses": { data: function () { return window.COURSES; }, origText: "主页 ↗" },
+    "data-algo":    { data: function () { return window.ALGO; },    origText: "原文 ↗" }
   };
   document.addEventListener("DOMContentLoaded", function () {
     Object.keys(SOURCES).forEach(function (attr) {

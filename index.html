@@ -14,6 +14,9 @@
     reading/_template.html  阅读笔记模板，复制它来写新笔记
     courses/index.html      课程汇总页
     courses/_template.html  课程笔记模板，复制它来写新笔记
+    assets/algo.js          左侧「算法思考」的数据源
+    algo/index.html         算法文章汇总页
+    algo/_template.html     算法文章模板，复制它来写新文章
   ============================================
 -->
 <html lang="zh-CN">
@@ -42,6 +45,12 @@
       <li><a href="https://github.com/LiHenghuanCode">GitHub</a></li>
     </ul>
     <div class="note">2027 届，正在找后端 / AI Agent 方向全职。</div>
+
+    <section class="side-block">
+      <h3>算法思考</h3>
+      <ul class="reading" data-algo data-limit="5"></ul>
+      <a class="all" href="algo/index.html">全部 →</a>
+    </section>
   </aside>
 
   <main>
@@ -164,6 +173,7 @@
 
 </div>
 <script src="assets/courses.js"></script>
+<script src="assets/algo.js"></script>
 <script src="assets/reading.js"></script>
 </body>
 </html>
