@@ -405,9 +405,9 @@ p.todo { color: var(--faint); font-size: 13.5px; margin-bottom: 14px; }
 /* 右侧栏多个区块（最近在读 / 最近在学）之间的间距 */
 .rail-block + .rail-block { margin-top: 34px; }
 
-/* ---------- 左侧栏「算法思考」 ---------- */
-.sidebar .side-block { margin-top: 30px; }
-.sidebar .side-block h3 {
+/* ---------- 左侧栏「算法思考」：和右侧栏区块同一套样式 ---------- */
+.sidebar .rail-block { margin-top: 34px; }
+.sidebar .rail-block h3 {
   font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 600;
@@ -416,11 +416,12 @@ p.todo { color: var(--faint); font-size: 13.5px; margin-bottom: 14px; }
   border-bottom: 2px solid var(--accent);
   margin-bottom: 14px;
 }
-.sidebar a.all {
+.sidebar .rail-block a.all {
   font-family: var(--font-sans);
   font-size: 12.5px;
   color: var(--accent);
 }
+.sidebar .rail-block .note { margin-top: 20px; }
 
 /* ---------- 代码块（算法文章用） ---------- */
 pre.code {
