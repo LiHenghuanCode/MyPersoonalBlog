@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>点评项目：Redis 缓存、秒杀与异步下单 — 互联网通用技术开发 · 李恒桓</title>
+<meta name="description" content="一个类大众点评的 Spring Boot 项目：Redis 登录态与双拦截器、缓存穿透与击穿、Lua 原子秒杀、RabbitMQ 异步下单与死信重试，以及代码里留下的几个坑。">
+<link rel="canonical" href="https://lihenghuan.com/tech/dianping.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page page-detail">
+  <main>
+    <a class="back" href="index.html">← 返回互联网通用技术开发</a>
+
+    <h1 class="detail-title">点评项目：Redis 缓存、秒杀与异步下单</h1>
+    <div class="detail-meta">Java · Redis · RabbitMQ <span class="when">｜ 写于 2026.10</span></div>
+    <div class="stack">Spring Boot 2.3.12 · MyBatis-Plus 3.4.3 · Redis · Lua · RabbitMQ · Hutool · MySQL</div>
+
+    <p class="bio" style="margin-top:18px">
+      源码：<a href="https://github.com/LiHenghuanCode/dianping" target="_blank" rel="noopener">github.com/LiHenghuanCode/dianping</a>。
+      这是一个类似大众点评的前后端分离项目，有短信登录、商户查询、优惠券秒杀、探店笔记、关注推送、附近商户和签到。
+      业务本身不复杂，值得写的是 Redis 在里面几乎每种数据结构都用上了，秒杀链路也从同步下单改成了 Lua 预检加 RabbitMQ 异步落库。
+      下面按请求链路讲，每部分都对应仓库里的具体类，最后记下读代码时发现的问题。
+    </p>
+
+    <h2>一、登录态：Redis 代替 Session</h2>
+    <p class="bio">
+      多台 Tomcat 不共享 Session，所以登录态放进 Redis。验证码存在 <code>login:code:{phone}</code>，2 分钟过期；
+      登录成功后生成一个 UUID 作为 token，把 <code>UserDTO</code> 转成 Hash 写进 <code>login:token:{token}</code>，有效期 30 分钟。
+      选 Hash 而不是整个 JSON 字符串，是为了以后能单独改某个字段。
+    </p>
+    <p class="bio">
+      拦截器分两层（<code>MvcConfig</code>）。<code>RefreshTokenInterceptor</code> 的 order 是 0，拦所有路径：有 token 就查 Redis、写进 ThreadLocal、续期 30 分钟，没有 token 也放行。
+      <code>LoginInterceptor</code> 的 order 是 1，只看 ThreadLocal 里有没有用户，没有就返回 401，商铺查询、热门笔记这类路径被排除在外。
+      只用一层的话，用户一直在浏览不需要登录的页面，token 不会续期，30 分钟后就被踢下线。
+    </p>
+    <pre class="code">// RefreshTokenInterceptor
+@Override
+public void afterCompletion(HttpServletRequest req, HttpServletResponse resp,
+                            Object handler, Exception ex) {
+    // Tomcat 线程会复用，不清掉的话下一个请求可能读到上一个用户
+    UserHolder.removeUser();
+}</pre>
+
+    <h2>二、商户缓存：穿透、击穿和一致性</h2>
+    <p class="bio">
+      缓存逻辑封装在 <code>CacheClient</code>，用函数式参数 <code>Function&lt;ID, R&gt; dbFallback</code> 传入查库方法，商铺以外的实体也能复用。
+    </p>
+
+    <h3>缓存穿透：缓存空值</h3>
+    <p class="bio">
+      <code>queryWithPassThrough</code> 查库为空时，往 Redis 写一个空字符串，TTL 2 分钟。下次命中空串直接返回 null，不再打库。
+      代价是这 2 分钟内如果真的插入了这条数据，用户会短暂查不到。布隆过滤器能省内存，但删除不方便，这个项目数据量小，没上。
+    </p>
+
+    <h3>缓存击穿：逻辑过期 + 互斥锁</h3>
+    <p class="bio">
+      商铺详情是热点 key，<code>ShopServiceImpl.queryById</code> 用的是 <code>queryWithLogicalExpire</code>。
+      Redis 里的值不设 TTL，而是包一层 <code>RedisData{data, expireTime}</code>。读到已过期的数据时，先用
+      <code>SETNX lock:shop:{id}</code>（10 秒过期）抢锁，抢到的线程把重建任务丢给一个 10 线程的线程池，自己和没抢到锁的线程都直接返回旧数据。
+    </p>
+    <p class="bio">
+      和互斥锁方案比，它用一致性换可用性：重建期间所有人读到的都是旧值，但没有任何请求被阻塞。商铺信息允许几秒的延迟，这个交换是划算的；库存、余额这类数据就不能这么做。
+    </p>
+    <pre class="code">boolean isLock = tryLock(lockKey);
+if (isLock) {
+    CACHE_REBUILD_EXECUTOR.submit(() -&gt; {
+        try {
+            R r1 = dbFallback.apply(id);
+            this.setWithLogicalExpire(key, r1, time, unit);
+        } finally {
+            unLock(lockKey);   // 释放的是 lockKey，不是缓存 key
+        }
+    });
+}
+return shop;   // 不管有没有抢到锁，先返回旧数据</pre>
+    <p class="bio">
+      逻辑过期有个前提：key 必须事先存在。缓存里查不到就直接返回 null，不会回源查库。所以项目里有一个
+      <code>ShopCacheTest.testCacheAllShops</code> 专门用来预热全部商铺，新增的商铺如果没预热，详情页会显示"店铺不存在"。
+    </p>
+
+    <h3>一致性：先写库，再删缓存</h3>
+    <p class="bio">
+      <code>ShopServiceImpl.update</code> 加了 <code>@Transactional</code>，先 <code>updateById</code> 再删缓存。
+      先删缓存再写库的话，删完到写库之间有读请求进来，会把旧值重新写回缓存；先写库再删，出问题的窗口要求"读请求在写库前查到旧值、又在删缓存之后才回写"，概率小得多。
+      删除失败没有重试，这是目前的一个缺口。
+    </p>
+
+    <h2>三、秒杀：Lua 预检 + RabbitMQ 异步下单</h2>
+    <p class="bio">
+      同步写法是在一个事务里查库存、查订单、扣库存、建订单，一人一单再靠分布式锁保证，每个请求都要打到 MySQL。
+      这个项目把资格判断挪进 Redis，数据库只处理已经抢到的订单：
+    </p>
+    <ol class="numbered">
+      <li>查优惠券的开始 / 结束时间（<code>checkTimeWindow</code>）。</li>
+      <li><code>RedisIdWorker</code> 生成订单 ID。</li>
+      <li>执行 <code>seckill.lua</code>，在 Redis 里原子地完成库存判断、一人一单判断、扣库存、记录下单用户。</li>
+      <li>返回 0 才把订单发到 RabbitMQ，然后立刻把订单号返回给前端。</li>
+      <li><code>SeckillVoucherListener</code> 消费消息，在事务里写订单、扣 MySQL 库存。</li>
+    </ol>
+
+    <h3>全局 ID</h3>
+    <p class="bio">
+      64 位 long：高位是相对 2022-01-01 的秒数，左移 32 位；低 32 位是 Redis <code>INCR icr:order:yyyy:MM:dd</code> 的自增值。
+      key 按天拆，既避免单个 key 自增到上限，也方便按天统计订单量。没有用数据库自增，是因为分库分表后自增 ID 会重复，而且 ID 连续容易被人看出单量。
+    </p>
+
+    <h3>Lua 脚本</h3>
+    <pre class="code">local stock = tonumber(redis.call('get', stockKey))
+if stock == nil then return -1 end          -- 库存没预热
+if stock &lt;= 0 then return 1 end             -- 库存不足
+if redis.call('sismember', orderKey, userId) == 1 then
+    return 2                                -- 重复下单
+end
+redis.call('incrby', stockKey, -1)
+redis.call('sadd', orderKey, userId)
+-- （原脚本这里还有一句 XADD，见第五节）
+return 0</pre>
+    <p class="bio">
+      判断和扣减放在一个脚本里，Redis 单线程执行，中间不会插入其他命令，所以不需要加锁，超卖和一人一单在这一步就挡住了。
+      库存 key 由 <code>VoucherOrderServiceImpl.preloadSeckillVouchers</code> 在启动时预热，用的是 <code>setIfAbsent</code>：
+      服务重启时不会用数据库里的库存覆盖 Redis 里已经扣过的实时库存。
+    </p>
+
+    <h3>消息队列与消费端</h3>
+    <p class="bio">
+      交换机 X 绑定队列 QA，QA 配了死信交换机 Y 和 10 秒 TTL，Y 绑定死信队列 QD。消费端两个队列都监听，处理逻辑相同。
+      消息用 <code>Jackson2JsonMessageConverter</code> 序列化，并注册了 <code>JavaTimeModule</code>，否则 <code>LocalDateTime</code> 字段在两端格式不一致，反序列化会失败。
+    </p>
+    <p class="bio">
+      消费端是手动 ack。成功就 <code>basicAck</code>；抛异常就 <code>basicNack(requeue=false)</code>，消息不回原队列，而是进死信队列 QD 再处理一次。
+      这样做是为了避免一条坏消息被无限重投、卡住整个队列。QA 的 10 秒 TTL 意味着消息积压超过 10 秒也会进 QD，不过 QD 同样有消费者，消息不会丢。
+    </p>
+    <pre class="code">transactionTemplate.execute(status -&gt; {
+    if (voucherOrderService.getById(order.getId()) != null) {
+        return true;                    // 重复消费，按订单 ID 幂等
+    }
+    voucherOrderService.save(order);
+    seckillVoucherService.update()
+        .setSql("stock = stock - 1")
+        .eq("voucher_id", voucherId).gt("stock", 0)   // 乐观锁兜底
+        .update();
+    return false;
+});</pre>
+    <p class="bio">
+      Redis 已经挡住了超卖，MySQL 这一层仍然保留 <code>stock &gt; 0</code> 条件，防的是 Redis 库存和数据库不一致时扣成负数。
+      事务用的是编程式的 <code>TransactionTemplate</code>：<code>handleOrder</code> 是同一个类里的私有方法，在它上面加 <code>@Transactional</code> 走不到 Spring 代理，不会生效。
+    </p>
+
+    <h2>四、其他 Redis 数据结构</h2>
+    <table class="tbl tbl-text">
+      <thead><tr><th>功能</th><th>结构</th><th>做法</th></tr></thead>
+      <tbody>
+        <tr><th>笔记点赞</th><td>ZSet</td><td>member 是用户 ID，score 是点赞时间戳；<code>ZRANGE 0 4</code> 取最早点赞的 5 人，再按 <code>ORDER BY FIELD</code> 保序查用户</td></tr>
+        <tr><th>关注 / 共同关注</th><td>Set</td><td>每人一个 <code>follows:{userId}</code>，共同关注就是 <code>SINTER</code></td></tr>
+        <tr><th>关注流</th><td>ZSet</td><td>推模式，发笔记时写进每个粉丝的收件箱 <code>feed:{userId}</code>；按 score 倒序滚动分页</td></tr>
+        <tr><th>附近商户</th><td>GEO</td><td>按商户类型分 key，<code>GEOSEARCH</code> 5 公里内并带距离，内存里跳过前几页做分页</td></tr>
+        <tr><th>签到</th><td>BitMap</td><td><code>sign:{userId}:yyyyMM</code>，一天一位；<code>BITFIELD</code> 取到今天为止的位，从低位往前数连续 1 的个数</td></tr>
+        <tr><th>商铺类型</th><td>List</td><td>每个类型一个 JSON 元素，按 sort 顺序 <code>RPUSH</code></td></tr>
+      </tbody>
+    </table>
+    <p class="bio">
+      关注流的分页值得单独说。笔记一直在新增，用页码分页会出现重复或漏读。这里每次请求带上上一页最小的时间戳 <code>max</code> 和
+      "与最小时间戳相同的元素有几个" <code>offset</code>，用 <code>ZREVRANGEBYSCORE key max 0 LIMIT offset 2</code> 往下翻。
+      offset 不能固定写 1，因为同一毫秒可能有多条笔记，score 相同的要一起跳过。
+    </p>
+
+    <h2>五、读代码时发现的问题</h2>
+    <p class="bio">这些都还在仓库里，记下来作为下一步要改的东西。</p>
+    <ul class="plain">
+      <li><b>MQ 发送失败时 Redis 不回滚。</b>Lua 已经扣了 Redis 库存、把用户写进了已下单集合，如果接下来 <code>convertAndSend</code> 抛异常，接口返回"服务器异常"，但这个用户再也下不了单，库存也少了一件。要么发送失败时用另一个 Lua 脚本把库存和集合加回来，要么开启 publisher confirm 并配合本地消息表。</li>
+      <li><code>seckill.lua</code> 末尾还留着一句 <code>XADD stream.orders</code>，是改用 RabbitMQ 之前 Redis Stream 方案的残留。现在没有消费者读这个 Stream，它会随订单量一直增长，应该删掉，或者至少加 <code>MAXLEN</code>。</li>
+      <li>死信队列 QD 再失败就直接丢弃，没有落库或告警，只能靠日志人工补单。</li>
+      <li>逻辑过期拿到锁之后没有再检查一次是否已被别的线程重建，极端情况下会重复查库。</li>
+      <li><code>SimpleRedisLock</code>（<code>SET NX EX</code> + UUID 加线程 ID 作为持有者标识 + Lua 比对后删除）已经不被任何代码引用，Redisson 依赖也引了没用上，属于秒杀改成 Lua + MQ 之后留下的遗留代码。另外它加载的是 <code>unlock.lua</code>，实际文件名是 <code>unLock.lua</code>：Windows 本地能跑，打成 jar 后类路径区分大小写，会找不到脚本。</li>
+      <li>先写库再删缓存，删除失败没有重试；可以订阅 binlog 异步删，或者至少加一次延迟双删。</li>
+    </ul>
+
+    <footer>
+      <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

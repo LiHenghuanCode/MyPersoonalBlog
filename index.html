@@ -17,6 +17,9 @@
     assets/algo.js          左侧「算法思考」的数据源
     algo/index.html         算法文章汇总页
     algo/_template.html     算法文章模板，复制它来写新文章
+    assets/tech.js          左侧「互联网通用技术开发」的数据源
+    tech/index.html         技术文章汇总页
+    tech/_template.html     技术文章模板，复制它来写新文章
   ============================================
 -->
 <html lang="zh-CN">
@@ -51,6 +54,13 @@
       <ul class="reading" data-algo data-limit="5"></ul>
       <a class="all" href="algo/index.html">全部 →</a>
       <div class="note">刷题模板、题解和算法技术博客，点标题进文章页。</div>
+    </section>
+
+    <section class="rail-block">
+      <h3>互联网通用技术开发</h3>
+      <ul class="reading" data-tech data-limit="5"></ul>
+      <a class="all" href="tech/index.html">全部 →</a>
+      <div class="note">缓存、分布式锁、消息队列等后端通用技术的项目实践，点标题进文章页。</div>
     </section>
   </aside>
 
@@ -175,6 +185,7 @@
 </div>
 <script src="assets/courses.js"></script>
 <script src="assets/algo.js"></script>
+<script src="assets/tech.js"></script>
 <script src="assets/reading.js"></script>
 </body>
 </html>

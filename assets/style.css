@@ -457,3 +457,8 @@ p.code-label {
 }
 .tag-bad  { color: var(--faint); border: 1px solid var(--line); }
 .tag-good { color: #fff; background: var(--accent); }
+
+/* 文字型表格：左对齐（技术文章用） */
+table.tbl.tbl-text th, table.tbl.tbl-text td { text-align: left; vertical-align: top; }
+table.tbl.tbl-text td { font-size: 13.5px; color: var(--soft); }
+table.tbl.tbl-text td:nth-child(2) { white-space: nowrap; color: var(--ink); }

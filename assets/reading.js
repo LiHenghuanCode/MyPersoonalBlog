@@ -38,6 +38,7 @@ window.READING = [
      data-reading  → window.READING（本文件）
      data-courses  → window.COURSES（assets/courses.js）
      data-algo     → window.ALGO（assets/algo.js）
+     data-tech     → window.TECH（assets/tech.js）
    -------------------------------------------------------- */
 (function () {
   function render(el, items, opts) {
@@ -89,7 +90,8 @@ window.READING = [
   var SOURCES = {
     "data-reading": { data: function () { return window.READING; }, origText: "原文 ↗" },
     "data-courses": { data: function () { return window.COURSES; }, origText: "主页 ↗" },
-    "data-algo":    { data: function () { return window.ALGO; },    origText: "原文 ↗" }
+    "data-algo":    { data: function () { return window.ALGO; },    origText: "原文 ↗" },
+    "data-tech":    { data: function () { return window.TECH; },    origText: "源码 ↗" }
   };
   document.addEventListener("DOMContentLoaded", function () {
     Object.keys(SOURCES).forEach(function (attr) {
