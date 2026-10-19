@@ -6,8 +6,8 @@
   站点结构：
     index.html              本页
     assets/style.css        全站共享样式（配色改 :root 的 --accent，字体改 --font-serif / --font-sans）
-    assets/reading.js       右侧「最近在读」的数据源 + 渲染（「最近在学」也用这里的渲染）
-    assets/courses.js       右侧「最近在学」的数据源
+    assets/reading.js       右侧「优质文章收录」的数据源 + 渲染（「优质课程收录」也用这里的渲染）
+    assets/courses.js       右侧「优质课程收录」的数据源
     experience/*.html       实习详情页
     projects/*.html         项目详情页
     reading/index.html      阅读汇总页
@@ -56,12 +56,15 @@
       <div class="note">刷题模板、题解和算法技术博客，点标题进文章页。</div>
     </section>
 
+    <!-- 「互联网通用技术开发」模块暂时屏蔽：恢复时删掉这行和下面 END 那行的注释标记，
+         并恢复页面底部 tech.js 的 <script>，再删掉 tech/ 下页面里的跳转
     <section class="rail-block">
       <h3>互联网通用技术开发</h3>
       <ul class="reading" data-tech data-limit="5"></ul>
       <a class="all" href="tech/index.html">全部 →</a>
       <div class="note">缓存、分布式锁、消息队列等后端通用技术的项目实践，点标题进文章页。</div>
     </section>
+    END 互联网通用技术开发 -->
   </aside>
 
   <main>
@@ -163,14 +166,14 @@
 
   <aside class="rail">
     <section class="rail-block">
-      <h3>最近在读</h3>
+      <h3>优质文章收录</h3>
       <ul class="reading" data-reading data-limit="5"></ul>
       <a class="all" href="reading/index.html">全部 →</a>
       <div class="note">论文和技术文章的读后笔记，点标题进笔记页。</div>
     </section>
 
     <section class="rail-block">
-      <h3>最近在学</h3>
+      <h3>优质课程收录</h3>
       <ul class="reading" data-courses data-limit="5"></ul>
       <a class="all" href="courses/index.html">全部 →</a>
       <div class="note">公开课的学习笔记，点标题进笔记页。</div>
@@ -185,7 +188,7 @@
 </div>
 <script src="assets/courses.js"></script>
 <script src="assets/algo.js"></script>
-<script src="assets/tech.js"></script>
+<!-- <script src="assets/tech.js"></script>  暂时屏蔽 -->
 <script src="assets/reading.js"></script>
 </body>
 </html>
