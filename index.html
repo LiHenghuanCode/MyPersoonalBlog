@@ -3,23 +3,7 @@
   ============================================
   个人主页 — lihenghuan.com
   内容来自「李恒桓-CV.pdf」
-  站点结构：
-    index.html              本页
-    assets/style.css        全站共享样式（配色改 :root 的 --accent，字体改 --font-serif / --font-sans）
-    assets/reading.js       右侧「最近在读」的数据源 + 渲染（「最近在学」也用这里的渲染）
-    assets/courses.js       右侧「最近在学」的数据源
-    experience/*.html       实习详情页
-    projects/*.html         项目详情页
-    reading/index.html      阅读汇总页
-    reading/_template.html  阅读笔记模板，复制它来写新笔记
-    courses/index.html      课程汇总页
-    courses/_template.html  课程笔记模板，复制它来写新笔记
-    assets/algo.js          左侧「算法思考」的数据源
-    algo/index.html         算法文章汇总页
-    algo/_template.html     算法文章模板，复制它来写新文章
-    assets/tech.js          左侧「互联网通用技术开发」的数据源
-    tech/index.html         技术文章汇总页
-    tech/_template.html     技术文章模板，复制它来写新文章
+  配色改 <style> 顶部 :root 里的 --accent 即可
   ============================================
 -->
 <html lang="zh-CN">
@@ -34,7 +18,101 @@
 <meta property="og:title" content="李恒桓 Henghuan Li — 后端开发 / AI Agent">
 <meta property="og:description" content="ANU 计算机科学硕士在读（2027 届）。后端方向，Go / Java，近期专注 LLM Agent 系统与 RAG 工程。">
 <meta property="og:url" content="https://lihenghuan.com/">
-<link rel="stylesheet" href="assets/style.css">
+<style>
+  :root {
+    --ink: #222;
+    --soft: #555;
+    --faint: #999;
+    --line: #e4e1dc;
+    --link: #0057b8;
+    --accent: #b4552d;   /* 主题色，改这一个颜色即可换整体配色 */
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background: #faf9f6;
+    line-height: 1.65;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { color: var(--accent); text-decoration: underline; }
+
+  .page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 48px 32px 64px;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 48px;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar h1 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    margin-bottom: 6px;
+  }
+  .sidebar h1::after { content: "."; color: var(--accent); }
+  .sidebar .title { color: var(--soft); font-size: 14px; margin-bottom: 2px; }
+  .sidebar .affil { color: var(--faint); font-size: 13px; margin-bottom: 22px; }
+  .sidebar .links { list-style: none; border-top: 2px solid var(--accent); padding-top: 16px; }
+  .sidebar .links li { margin-bottom: 7px; font-size: 14px; }
+  .sidebar .links li::before { content: "›"; color: var(--accent); margin-right: 8px; }
+  .sidebar .note { margin-top: 22px; font-size: 12.5px; color: var(--faint); line-height: 1.6; }
+
+  /* ---------- Main ---------- */
+  h2 {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 21px;
+    font-weight: 600;
+    margin: 34px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  h2::after {
+    content: "";
+    position: absolute; left: 0; bottom: -1px;
+    width: 44px; height: 2px;
+    background: var(--accent);
+  }
+  h2:first-child { margin-top: 0; }
+  p.bio { color: var(--ink); margin-bottom: 12px; }
+  p.bio b { font-weight: 600; }
+
+  .work { margin-bottom: 22px; }
+  .work .head { font-weight: 600; font-size: 15px; }
+  .work .head .role { font-weight: 400; color: var(--soft); }
+  .work .head .when { float: right; font-weight: 400; color: var(--faint); font-size: 13.5px; }
+  .work .stack { font-size: 12.5px; color: var(--faint); margin-top: 2px; letter-spacing: .01em; }
+  .work .desc { color: var(--soft); font-size: 14px; margin-top: 5px; }
+  .work .desc b { color: var(--ink); font-weight: 600; }
+  .work ul.plain { margin-top: 7px; }
+  .m { color: var(--accent); font-weight: 600; }  /* 高亮数字 */
+
+  ul.plain { list-style: none; }
+  ul.plain li { margin-bottom: 7px; padding-left: 16px; position: relative; color: var(--soft); font-size: 14px; }
+  ul.plain li::before { content: "·"; position: absolute; left: 2px; color: var(--accent); font-weight: 700; }
+  ul.plain li b { color: var(--ink); font-weight: 600; }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    margin-top: 20px; padding-top: 16px;
+    font-size: 12.5px; color: var(--faint);
+    display: flex; justify-content: space-between;
+  }
+
+  @media (max-width: 720px) {
+    .page { grid-template-columns: 1fr; gap: 12px; padding: 32px 22px 48px; }
+    .sidebar .links { border-top: none; padding-top: 10px; }
+    .work .head .when { float: none; display: block; }
+  }
+</style>
 </head>
 <body>
 <div class="page">
@@ -48,20 +126,6 @@
       <li><a href="https://github.com/LiHenghuanCode">GitHub</a></li>
     </ul>
     <div class="note">2027 届，正在找后端 / AI Agent 方向全职。</div>
-
-    <section class="rail-block">
-      <h3>算法思考</h3>
-      <ul class="reading" data-algo data-limit="5"></ul>
-      <a class="all" href="algo/index.html">全部 →</a>
-      <div class="note">刷题模板、题解和算法技术博客，点标题进文章页。</div>
-    </section>
-
-    <section class="rail-block">
-      <h3>互联网通用技术开发</h3>
-      <ul class="reading" data-tech data-limit="5"></ul>
-      <a class="all" href="tech/index.html">全部 →</a>
-      <div class="note">缓存、分布式锁、消息队列等后端通用技术的项目实践，点标题进文章页。</div>
-    </section>
   </aside>
 
   <main>
@@ -70,7 +134,7 @@
       <b>澳洲国立大学</b>（ANU，QS 29）计算机科学硕士在读，2027 届；本科<b>重庆大学</b>土木工程。
     </p>
     <p class="bio">
-      后端出身，主力语言 <b>Java</b>，熟悉 Go，Python，C++。
+      后端出身，主力语言 <b>Go</b>，熟悉 Java，用过C++。
     </p>
     <p class="bio">
       求职重心：Agent开发，Golang后端开发，Java后端开发
@@ -82,7 +146,7 @@
       <div class="head">澳洲国立大学（ANU，QS 29） <span class="role">— 计算机科学 · 硕士</span><span class="when">2025.02 — 2026.12</span></div>
       <ul class="plain">
         <li><b>主修课程：</b>计算机架构、结构化编程、系统网络与并发、计算机图形学、计算机网络、软件工程、软件架构、系统工程</li>
-        <li><b>毕业项目：</b>澳洲有毒植物开源互联网方案的设计与落地，链接：https://aupoisonousplants.world/</li>
+        <li><b>毕业项目：</b>澳洲有毒植物开源互联网方案的设计与落地</li>
       </ul>
     </div>
 
@@ -104,10 +168,9 @@
         提取墙、窗等构件的位置坐标与尺寸信息。
       </div>
       <ul class="plain">
-        <li>负责算法集成与端到端测试，<b>提前两周交付</b>；测试中发现延迟偏高，主导<b>空间哈希分桶剪枝 + OpenMP 并行</b>优化，大型模型墙体聚类耗时从 <span class="m">206ms</span> 降到 <span class="m">28ms</span>（约 <span class="m">7.4×</span>），产品最终落地「快速 / 精确」双识别模式。</li>
+        <li>主导<b>两阶段候选剪枝 + OpenMP 并行</b>的墙体识别策略，大型模型分类耗时从 <span class="m">221ms</span> 降到 <span class="m">28ms</span>（<span class="m">7.9×</span>）。</li>
         <li>按预估容量提前分配，把 <code>std::unordered_map</code> 的 rehash 次数从 <span class="m">1340</span> 次压到 <span class="m">15</span> 次。</li>
       </ul>
-      <a class="more" href="experience/goulix.html">详细描述 →</a>
     </div>
 
     <h2>项目经历</h2>
@@ -121,7 +184,6 @@
         <li><b>超长任务</b>：进程与任务解耦，进程死掉任务不结束；状态和证据持续落盘，恢复时先校验工作区未被污染，再按失败类型选最小代价的重试策略，多 Agent 场景只重跑未完成的子任务。</li>
         <li><b>可信压缩</b>：模型自主压缩上下文同样不可信，改用确定性规则硬性约束——冻结契约和未解决约束优先级最高且绝不截断，超预算直接报错而非悄悄丢弃。</li>
       </ul>
-      <a class="more" href="projects/agent-leader.html">详细描述 →</a>
     </div>
 
     <div class="work">
@@ -132,7 +194,6 @@
         <li><b>多路召回与索引优化</b>：QueryPlanner 拆出带预算的查询计划，SQL / BM25（Milvus Function 声明式全文）/ Dense 三路召回；分数量纲不可比，所以只按排名做 RRF 融合，Cross-Encoder 精排兜底。索引按规模分治——语料库走 HNSW 求召回，八万余 chunk 的论文库走 IVF_SQ8 量化省内存；租户与知识版本用 expr 服务端预过滤，权限做在向量层。</li>
         <li><b>幻觉防范与记忆治理</b>：无证据不说话，建议必须绑定证据 ID，引用越过白名单即判伪造，数值与库内实测值比对等四类确定性校验不过就打回。记忆写入设门禁——检索到的文档永不入记忆以防投毒，置信度不足丢弃，落库须用户确认；AES-256-GCM 加密加 content_hash 去重，注入限定 token 预算并在前端透明展示。</li>
       </ul>
-      <a class="more" href="projects/health-advisor.html">详细描述 →</a>
     </div>
 
     <div class="work">
@@ -145,7 +206,6 @@
         <li>fasthttp.ServeFile 走 sendfile 实现零拷贝传输，资源传输性能提升 <span class="m">60%</span>，内存占用降低 <span class="m">40%</span>。</li>
         <li>Redis + Lua 实现令牌桶，跨实例精准限流，精度误差在 <span class="m">1%</span> 以内。</li>
       </ul>
-      <a class="more" href="projects/mini-gateway.html">详细描述 →</a>
     </div>
 
     <h2>专业技能</h2>
@@ -159,33 +219,12 @@
       <li><b>语言：</b>中文（母语）；英语 —— 雅思学术类 6.5，CET-4/6</li>
     </ul>
 
+    <footer>
+      <span>© 2026 李恒桓 Henghuan Li</span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
   </main>
 
-  <aside class="rail">
-    <section class="rail-block">
-      <h3>最近在读</h3>
-      <ul class="reading" data-reading data-limit="5"></ul>
-      <a class="all" href="reading/index.html">全部 →</a>
-      <div class="note">论文和技术文章的读后笔记，点标题进笔记页。</div>
-    </section>
-
-    <section class="rail-block">
-      <h3>最近在学</h3>
-      <ul class="reading" data-courses data-limit="5"></ul>
-      <a class="all" href="courses/index.html">全部 →</a>
-      <div class="note">公开课的学习笔记，点标题进笔记页。</div>
-    </section>
-  </aside>
-
-  <footer>
-    <span>© 2026 李恒桓 Henghuan Li</span>
-    <span>Last updated: Oct 2026</span>
-  </footer>
-
 </div>
-<script src="assets/courses.js"></script>
-<script src="assets/algo.js"></script>
-<script src="assets/tech.js"></script>
-<script src="assets/reading.js"></script>
 </body>
 </html>
