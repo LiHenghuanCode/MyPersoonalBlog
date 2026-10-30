@@ -13,21 +13,21 @@
 window.ALGO = [
   {
     title: "贪心算法：五类套路与十道经典题",
-    source: "贪心 · 左程云算法课",
+    source: "贪心 · 专题整理",
     date: "2026-10",
     note: "algo/greedy.html",
     orig: ""
   },
   {
     title: "图论：建图、拓扑排序、最小生成树与最短路",
-    source: "图论 · 左程云算法课",
+    source: "图论 · 专题整理",
     date: "2026-10",
     note: "algo/graph.html",
     orig: ""
   },
   {
     title: "排序算法：从 O(n²) 到基数排序",
-    source: "排序 · 左程云算法课",
+    source: "排序 · 专题整理",
     date: "2026-10",
     note: "algo/sorting.html",
     orig: ""

@@ -466,3 +466,11 @@ table.tbl.tbl-text td:nth-child(2) { white-space: nowrap; color: var(--ink); }
 /* 详情页插图 */
 figure.fig { margin: 12px 0 20px; }
 figure.fig img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 3px; }
+
+/* 长文档里的表格：可换行，窄屏可横向滚动 */
+.tbl-scroll { overflow-x: auto; margin: 6px 0 18px; }
+.tbl-scroll table.tbl { margin-bottom: 0; }
+table.tbl.tbl-doc { min-width: 520px; }
+table.tbl.tbl-doc td:nth-child(2) { white-space: normal; color: var(--soft); }
+table.tbl.tbl-doc tbody th { font-size: 13.5px; white-space: normal; }
+table.tbl.tbl-doc code { white-space: nowrap; }

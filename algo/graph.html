@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>图论：建图、拓扑排序、最小生成树与最短路 — 算法思考 · 李恒桓</title>
-<meta name="description" content="左程云算法课图论章节整理：链式前向星、拓扑排序、Kruskal / Prim、BFS / 01-BFS、Dijkstra、分层图、Floyd、Bellman-Ford / SPFA，附验证过的 Java 代码。">
+<meta name="description" content="图论整理：链式前向星、拓扑排序、Kruskal / Prim、BFS / 01-BFS、Dijkstra、分层图、Floyd、Bellman-Ford / SPFA，附验证过的 Java 代码。">
 <link rel="canonical" href="https://lihenghuan.com/algo/graph.html">
 <link rel="stylesheet" href="../assets/style.css">
 </head>
@@ -14,12 +14,12 @@
     <a class="back" href="index.html">← 返回算法思考</a>
 
     <h1 class="detail-title">图论：建图、拓扑排序、最小生成树与最短路</h1>
-    <div class="detail-meta">图论 · 左程云算法课 讲解 059–065 <span class="when">｜ 写于 2026.10</span></div>
+    <div class="detail-meta">图论 <span class="when">｜ 写于 2026.10</span></div>
     <div class="stack">链式前向星 · 拓扑排序 · 并查集 · 01-BFS · Dijkstra · 分层图 · Floyd · SPFA</div>
 
     <p class="bio" style="margin-top:18px">
-      对应左程云课程 <a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class059" target="_blank" rel="noopener">讲解 059</a>–<a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class065" target="_blank" rel="noopener">讲解 065</a>，也就是他标为【必备】的那部分图论：建图、拓扑排序、最小生成树、BFS 及其扩展、
-      最短路（Dijkstra、分层图、Floyd、Bellman-Ford / SPFA）。割点、强连通分量、网络流这些他放在了后面的【挺难】课程，这篇不涉及。
+      这篇覆盖图论的基础部分：建图、拓扑排序、最小生成树、BFS 及其扩展、
+      最短路（Dijkstra、分层图、Floyd、Bellman-Ford / SPFA）。割点、强连通分量、网络流不在这篇里。
     </p>
     <p class="bio">
       代码全部基于链式前向星。验证方式是在 3000 张随机图上交叉对比：Dijkstra、Floyd、SPFA 三种最短路结果必须一致；
@@ -96,7 +96,7 @@ public static int[] topoSort(int n) {
 }</pre>
     <p class="bio">
       拓扑序通常不唯一。题目要「字典序最小的拓扑序」时，把队列换成小根堆，每次弹出当前可选的最小编号即可。
-      课程里还有几道把拓扑排序当工具用的题，比如在拓扑序上做 DP（<a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class060" target="_blank" rel="noopener">讲解 060</a> 的食物链计数、并行课程 III），值得一起看。
+      拓扑排序也常被当成工具用，比如在拓扑序上做 DP（食物链计数、并行课程 III），值得一起看。
     </p>
     <p class="tbl-note">练习：<a href="https://leetcode.cn/problems/course-schedule-ii/" target="_blank" rel="noopener">LeetCode 210 课程表 II</a>　<a href="https://www.luogu.com.cn/problem/U107394" target="_blank" rel="noopener">洛谷 U107394 字典序最小拓扑序</a>　<a href="https://www.luogu.com.cn/problem/P4017" target="_blank" rel="noopener">洛谷 P4017 最大食物链计数</a></p>
 
@@ -133,7 +133,7 @@ public static long kruskal(int n, int[][] edges) {
 }</pre>
     <p class="bio">
       Prim 从一个点出发，每次在「一端已解锁、另一端没解锁」的边里挑最便宜的。用普通堆实现是 O(m log m)，
-      课程里还讲了用反向索引堆优化到 O((n + m) log n) 的版本，稠密图上更快，但实现麻烦得多，笔试里用 Kruskal 就够了。
+      还有一种用反向索引堆优化到 O((n + m) log n) 的版本，稠密图上更快，但实现麻烦得多，笔试里用 Kruskal 就够了。
     </p>
     <pre class="code">public static boolean[] visited = new boolean[MAXN];
 
@@ -374,12 +374,6 @@ public static boolean spfa(int n, int s) {
       </tbody>
     </table>
 
-    <h2>参考</h2>
-    <p class="bio">
-      章节顺序和题目选择来自左程云的「算法讲解」课程，课程代码和课件在
-      <a href="https://github.com/algorithmzuo/algorithm-journey" target="_blank" rel="noopener">algorithmzuo/algorithm-journey</a>。
-      本文代码是我按自己的习惯重写的，没有照搬课程代码。
-    </p>
 
     <footer>
       <span><a href="../index.html">李恒桓 Henghuan Li</a></span>

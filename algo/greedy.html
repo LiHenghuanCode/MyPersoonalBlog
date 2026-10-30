@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>贪心算法：五类套路与十道经典题 — 算法思考 · 李恒桓</title>
-<meta name="description" content="左程云算法课贪心专题整理：排序定序、堆、区间会议、反悔贪心、覆盖跳跃五类套路，10 道经典题，每道都用暴力解对拍验证。">
+<meta name="description" content="贪心整理：排序定序、堆、区间会议、反悔贪心、覆盖跳跃五类套路，10 道经典题，每道都用暴力解对拍验证。">
 <link rel="canonical" href="https://lihenghuan.com/algo/greedy.html">
 <link rel="stylesheet" href="../assets/style.css">
 </head>
@@ -14,20 +14,19 @@
     <a class="back" href="index.html">← 返回算法思考</a>
 
     <h1 class="detail-title">贪心算法：五类套路与十道经典题</h1>
-    <div class="detail-meta">贪心 · 左程云算法课 讲解 089–094 <span class="when">｜ 写于 2026.10</span></div>
+    <div class="detail-meta">贪心 <span class="when">｜ 写于 2026.10</span></div>
     <div class="stack">排序 · 堆 · 反悔贪心 · 区间覆盖 · 对数器</div>
 
     <p class="bio" style="margin-top:18px">
-      对应左程云课程 <a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class089" target="_blank" rel="noopener">讲解 089</a>–<a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class094" target="_blank" rel="noopener">讲解 094</a>，六节贪心经典题目专题。他对贪心的定义分两层：狭义的贪心是每一步都做当前最优的选择，
+      贪心的定义可以分两层：狭义的贪心是每一步都做当前最优的选择，
       指望最后整体也最优；广义的贪心是只要从题目性质里发现了能加速求解的结论，都算。
     </p>
     <p class="bio">
-      贪心难在证明局部最优能推出全局最优，而且每道题的证明都不一样，很难积累成套路。课程给的建议很务实：
+      贪心难在证明局部最优能推出全局最优，而且每道题的证明都不一样，很难积累成套路。比较务实的做法是：
       不去纠结严格证明，靠对数器验证；把精力花在积累「什么样的题、用什么样的贪心」上；先看数据量，如果数据量允许用更稳的方法，比如 DP，就别冒险用贪心。
-      他还提到贪心在笔试里出现得不少，面试里反而少，原因是淘汰率和区分度之间的权衡。
     </p>
     <p class="bio">
-      下面从专题里挑了 10 道最典型的，按贪心的套路分成五类，这个分类是我自己整理的。每道题都写了一个暴力解，
+      下面挑了 10 道最典型的，按贪心的套路分成五类，这个分类是我自己整理的。每道题都写了一个暴力解，
       在 3000 组随机小数据上和贪心解对拍，全部一致。最后一节放了一个暴力解的例子。
     </p>
 
@@ -122,7 +121,7 @@ public static int findMaximizedCapital(int k, int w, int[] profits, int[] capita
     <h2>三、区间与会议</h2>
     <h3>会议室 II</h3>
     <p class="bio">
-      最少需要几间会议室，等价于同一时刻最多有多少个会议重叠，也就是课程 <a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class027" target="_blank" rel="noopener">讲解 027</a> 里的「最多线段重合」。
+      最少需要几间会议室，等价于同一时刻最多有多少个会议重叠，也就是经典的「最多线段重合」问题。
       按开始时间排序，小根堆里放正在进行的会议的结束时间；新会议开始前，先把已经结束的弹掉，堆的大小就是此刻重叠的会议数。
     </p>
     <pre class="code">// 会议室 II：最少几间会议室 = 同一时刻最多有几个会议重叠
@@ -303,12 +302,6 @@ static boolean anyOrder(List&lt;int[]&gt; sel, boolean[] used, int cnt, int time
       就把那组输入打印出来，数据很小，手推一遍基本就能看出贪心策略漏了什么情况。
     </p>
 
-    <h2>参考</h2>
-    <p class="bio">
-      章节顺序和题目选择来自左程云的「算法讲解」课程，课程代码和课件在
-      <a href="https://github.com/algorithmzuo/algorithm-journey" target="_blank" rel="noopener">algorithmzuo/algorithm-journey</a>。
-      本文代码是我按自己的习惯重写的，没有照搬课程代码。
-    </p>
 
     <footer>
       <span><a href="../index.html">李恒桓 Henghuan Li</a></span>

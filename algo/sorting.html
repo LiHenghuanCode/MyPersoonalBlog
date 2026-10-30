@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>排序算法：从 O(n²) 到基数排序 — 算法思考 · 李恒桓</title>
-<meta name="description" content="左程云算法课排序章节整理：插入、归并与归并分治、随机快排与随机选择、堆排序、基数排序，附对数器验证过的 Java 代码。">
+<meta name="description" content="排序整理：插入、归并与归并分治、随机快排与随机选择、堆排序、基数排序，附对数器验证过的 Java 代码。">
 <link rel="canonical" href="https://lihenghuan.com/algo/sorting.html">
 <link rel="stylesheet" href="../assets/style.css">
 </head>
@@ -14,11 +14,11 @@
     <a class="back" href="index.html">← 返回算法思考</a>
 
     <h1 class="detail-title">排序算法：从 O(n²) 到基数排序</h1>
-    <div class="detail-meta">排序 · 左程云算法课 讲解 004、021–029 <span class="when">｜ 写于 2026.10</span></div>
+    <div class="detail-meta">排序 <span class="when">｜ 写于 2026.10</span></div>
     <div class="stack">归并分治 · 荷兰国旗 · 随机选择 · 堆 · 基数排序 · 对数器</div>
 
     <p class="bio" style="margin-top:18px">
-      按左程云课程 <a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class004" target="_blank" rel="noopener">讲解 004</a>、<a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class021" target="_blank" rel="noopener">讲解 021</a>–<a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class029" target="_blank" rel="noopener">讲解 029</a> 的顺序整理。代码风格和
+      代码风格和
       <a href="java-fast-io.html">上一篇</a>一致，大数组开成全局静态的。
       所有排序都用对数器测过：2 万组随机数组，长度 0～60，值域 −1000～1000（故意带负数，基数排序最容易在这里出错），
       结果和 <code>Arrays.sort</code> 逐个比对。
@@ -315,12 +315,6 @@ public static void main(String[] args) {
     System.out.println("测试通过");
 }</pre>
 
-    <h2>参考</h2>
-    <p class="bio">
-      章节顺序和题目选择来自左程云的「算法讲解」课程，课程代码和课件在
-      <a href="https://github.com/algorithmzuo/algorithm-journey" target="_blank" rel="noopener">algorithmzuo/algorithm-journey</a>。
-      本文代码是我按自己的习惯重写的，没有照搬课程代码。
-    </p>
 
     <footer>
       <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
