@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>贪心算法：五类套路与十道经典题 — 算法思考 · 李恒桓</title>
+<meta name="description" content="左程云算法课贪心专题整理：排序定序、堆、区间会议、反悔贪心、覆盖跳跃五类套路，10 道经典题，每道都用暴力解对拍验证。">
+<link rel="canonical" href="https://lihenghuan.com/algo/greedy.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page page-detail">
+  <main>
+    <a class="back" href="index.html">← 返回算法思考</a>
+
+    <h1 class="detail-title">贪心算法：五类套路与十道经典题</h1>
+    <div class="detail-meta">贪心 · 左程云算法课 讲解 089–094 <span class="when">｜ 写于 2026.10</span></div>
+    <div class="stack">排序 · 堆 · 反悔贪心 · 区间覆盖 · 对数器</div>
+
+    <p class="bio" style="margin-top:18px">
+      对应左程云课程 <a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class089" target="_blank" rel="noopener">讲解 089</a>–<a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class094" target="_blank" rel="noopener">讲解 094</a>，六节贪心经典题目专题。他对贪心的定义分两层：狭义的贪心是每一步都做当前最优的选择，
+      指望最后整体也最优；广义的贪心是只要从题目性质里发现了能加速求解的结论，都算。
+    </p>
+    <p class="bio">
+      贪心难在证明局部最优能推出全局最优，而且每道题的证明都不一样，很难积累成套路。课程给的建议很务实：
+      不去纠结严格证明，靠对数器验证；把精力花在积累「什么样的题、用什么样的贪心」上；先看数据量，如果数据量允许用更稳的方法，比如 DP，就别冒险用贪心。
+      他还提到贪心在笔试里出现得不少，面试里反而少，原因是淘汰率和区分度之间的权衡。
+    </p>
+    <p class="bio">
+      下面从专题里挑了 10 道最典型的，按贪心的套路分成五类，这个分类是我自己整理的。每道题都写了一个暴力解，
+      在 3000 组随机小数据上和贪心解对拍，全部一致。最后一节放了一个暴力解的例子。
+    </p>
+
+    <h2>一、排序定序</h2>
+    <p class="bio">
+      很多贪心的第一步是排序，难点在于按什么排。
+    </p>
+    <h3>最大数</h3>
+    <p class="bio">
+      把一组非负整数拼成最大的数。直觉是按字典序从大到小排，但 <code>3</code> 和 <code>30</code> 就反例了：字典序 <code>30</code> 更大，
+      可是 <code>330</code> 大于 <code>303</code>。正确的比较规则是直接比两种拼法：<code>a + b</code> 和 <code>b + a</code> 谁大，谁的顺序就对。
+      这个比较规则具有传递性，所以可以直接拿去排序。还有一个边界：输入全是 0 时要返回 <code>"0"</code>，不能返回 <code>"000"</code>。
+    </p>
+    <pre class="code">// 最大数：两个串 a、b 谁放前面？比较 a+b 和 b+a 就行
+public static String largestNumber(int[] nums) {
+    String[] strs = new String[nums.length];
+    for (int i = 0; i &lt; nums.length; i++) strs[i] = String.valueOf(nums[i]);
+    Arrays.sort(strs, (a, b) -&gt; (b + a).compareTo(a + b));
+    if (strs[0].equals("0")) {
+        return "0";   // 全是 0 时不能返回 "000"
+    }
+    StringBuilder sb = new StringBuilder();
+    for (String s : strs) sb.append(s);
+    return sb.toString();
+}</pre>
+
+    <h3>两地调度</h3>
+    <p class="bio">
+      2n 个人，每人去 A 市和 B 市的费用不同，每个城市恰好去 n 个人，求总费用最小。先当作所有人都去 A，
+      再从中挑 n 个人改去 B，某人改签的额外代价是 <code>b − a</code>（可能是负数），挑代价最小的 n 个。
+      原问题有两个维度，换个视角变成了只按一个差值排序。
+    </p>
+    <pre class="code">// 两地调度：先假设所有人都去 A，再挑 n 个人改去 B
+// 改去 B 的代价是 b - a，挑代价最小的 n 个
+public static int twoCitySchedCost(int[][] costs) {
+    int n = costs.length / 2, sum = 0;
+    int[] diff = new int[costs.length];
+    for (int i = 0; i &lt; costs.length; i++) {
+        sum += costs[i][0];
+        diff[i] = costs[i][1] - costs[i][0];
+    }
+    Arrays.sort(diff);
+    for (int i = 0; i &lt; n; i++) sum += diff[i];
+    return sum;
+}</pre>
+    <p class="tbl-note">练习：<a href="https://leetcode.cn/problems/largest-number/" target="_blank" rel="noopener">LeetCode 179 最大数</a>　<a href="https://leetcode.cn/problems/two-city-scheduling/" target="_blank" rel="noopener">LeetCode 1029 两地调度</a></p>
+
+    <h2>二、用堆反复拿当前最优</h2>
+    <h3>连接棒材 / 合并果子</h3>
+    <p class="bio">
+      每次合并两根棒子的代价是两者长度之和，求合并成一根的最小总代价。每根棒子的长度会被计入「它被合并的次数」那么多次，
+      所以越短的越应该晚出场、多被合并几次，越长的越应该少被合并。每次从小根堆里拿最短的两根合并，再放回去，这就是哈夫曼编码的构造过程。
+    </p>
+    <pre class="code">// 连接棒材（合并果子）：每次合并当前最短的两根，就是哈夫曼编码的思路
+public static int connectSticks(int[] sticks) {
+    PriorityQueue&lt;Integer&gt; heap = new PriorityQueue&lt;&gt;();
+    for (int s : sticks) heap.add(s);
+    int cost = 0;
+    while (heap.size() &gt; 1) {
+        int cur = heap.poll() + heap.poll();
+        cost += cur;
+        heap.add(cur);
+    }
+    return cost;
+}</pre>
+
+    <h3>IPO</h3>
+    <p class="bio">
+      有初始资金 w，最多做 k 个项目，每个项目有启动资金门槛和利润，做完资金增加。每一步的最优选择很明确：
+      在当前资金做得起的项目里，挑利润最大的。用两个堆实现：按门槛排序的小根堆放还解锁不了的项目，
+      资金一涨就把够得着的挪到按利润排序的大根堆里。
+    </p>
+    <pre class="code">// IPO：最多做 k 个项目，初始资金 w，做完一个项目资金加上它的利润
+// 小根堆按启动资金放「还做不了」的项目，大根堆按利润放「已经解锁」的项目
+public static int findMaximizedCapital(int k, int w, int[] profits, int[] capital) {
+    PriorityQueue&lt;int[]&gt; locked = new PriorityQueue&lt;&gt;((a, b) -&gt; a[0] - b[0]);     // {资金, 利润}
+    PriorityQueue&lt;Integer&gt; unlocked = new PriorityQueue&lt;&gt;((a, b) -&gt; b - a);       // 利润
+    for (int i = 0; i &lt; profits.length; i++) locked.add(new int[] { capital[i], profits[i] });
+    while (k-- &gt; 0) {
+        while (!locked.isEmpty() &amp;&amp; locked.peek()[0] &lt;= w) {
+            unlocked.add(locked.poll()[1]);
+        }
+        if (unlocked.isEmpty()) {
+            break;   // 一个都做不了了
+        }
+        w += unlocked.poll();   // 做能做的里面利润最大的
+    }
+    return w;
+}</pre>
+    <p class="tbl-note">练习：<a href="https://www.luogu.com.cn/problem/P1090" target="_blank" rel="noopener">洛谷 P1090 合并果子</a>　<a href="https://leetcode.cn/problems/ipo/" target="_blank" rel="noopener">LeetCode 502 IPO</a></p>
+
+    <h2>三、区间与会议</h2>
+    <h3>会议室 II</h3>
+    <p class="bio">
+      最少需要几间会议室，等价于同一时刻最多有多少个会议重叠，也就是课程 <a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class027" target="_blank" rel="noopener">讲解 027</a> 里的「最多线段重合」。
+      按开始时间排序，小根堆里放正在进行的会议的结束时间；新会议开始前，先把已经结束的弹掉，堆的大小就是此刻重叠的会议数。
+    </p>
+    <pre class="code">// 会议室 II：最少几间会议室 = 同一时刻最多有几个会议重叠
+// 按开始时间排序，小根堆放「正在开的会议」的结束时间
+public static int minMeetingRooms(int[][] intervals) {
+    Arrays.sort(intervals, (a, b) -&gt; a[0] - b[0]);
+    PriorityQueue&lt;Integer&gt; ends = new PriorityQueue&lt;&gt;();
+    int ans = 0;
+    for (int[] m : intervals) {
+        while (!ends.isEmpty() &amp;&amp; ends.peek() &lt;= m[0]) {
+            ends.poll();   // 已经结束的会议腾出房间
+        }
+        ends.add(m[1]);
+        ans = Math.max(ans, ends.size());
+    }
+    return ans;
+}</pre>
+
+    <h3>会议只占一天</h3>
+    <p class="bio">
+      每个会议在 <code>[start, end]</code> 里任选一天参加，每天只能参加一个，求最多参加几个。从早到晚一天一天看，
+      当天能参加的会议里，先参加结束得最早的，因为它最快过期，结束晚的留到后面还有机会。
+      实现时同样是按开始时间排序 + 结束时间的小根堆；堆空的时候直接跳到下一个会议的开始日，避免逐天空转。
+    </p>
+    <pre class="code">// 会议只占一天：每个会议在 [start, end] 里选一天参加，每天只能参加一个，问最多参加几个
+// 从早到晚过每一天，在「已经开始、还没结束」的会议里，先参加最早结束的
+public static int maxEvents(int[][] events) {
+    Arrays.sort(events, (a, b) -&gt; a[0] - b[0]);
+    PriorityQueue&lt;Integer&gt; ends = new PriorityQueue&lt;&gt;();
+    int i = 0, n = events.length, ans = 0;
+    int day = events.length == 0 ? 0 : events[0][0];
+    while (i &lt; n || !ends.isEmpty()) {
+        if (ends.isEmpty()) day = Math.max(day, events[i][0]);   // 中间空着的日子直接跳过
+        while (i &lt; n &amp;&amp; events[i][0] == day) ends.add(events[i++][1]);
+        while (!ends.isEmpty() &amp;&amp; ends.peek() &lt; day) ends.poll();   // 过期的扔掉
+        if (!ends.isEmpty()) {
+            ends.poll();
+            ans++;
+        }
+        day++;
+    }
+    return ans;
+}</pre>
+    <p class="tbl-note">练习：<a href="https://leetcode.cn/problems/meeting-rooms-ii/" target="_blank" rel="noopener">LeetCode 253 会议室 II</a>　<a href="https://leetcode.cn/problems/maximum-number-of-events-that-can-be-attended/" target="_blank" rel="noopener">LeetCode 1353 最多可以参加的会议数目</a></p>
+
+    <h2>四、反悔贪心</h2>
+    <p class="bio">
+      有些题当下做不出最优选择，因为不知道后面会来什么。反悔贪心的做法是先按某种顺序选上，把选过的东西存进堆里，
+      后面发现更好的选择时，从堆里拿出一个之前的选择换掉。
+    </p>
+    <h3>课程表 III</h3>
+    <p class="bio">
+      每门课有持续天数和最晚完成日，一次只能上一门，求最多修几门。先按截止日排序，截止早的先考虑。
+      当前这门课能在截止前修完，就直接选上；修不完，就看已选课程里最长的那门：如果比当前这门长，换掉它。
+      换完门数不变，但总耗时变短了，给后面的课留出了更多余地。
+    </p>
+    <pre class="code">// 课程表 III：courses[i] = {持续天数, 最晚完成日}，最多能修几门
+// 按截止日排序依次尝试；放不下时，如果它比已选的最长课更短，就用它换掉最长的
+public static int scheduleCourse(int[][] courses) {
+    Arrays.sort(courses, (a, b) -&gt; a[1] - b[1]);
+    PriorityQueue&lt;Integer&gt; heap = new PriorityQueue&lt;&gt;((a, b) -&gt; b - a);   // 已选课程的时长，大根堆
+    int time = 0;
+    for (int[] c : courses) {
+        if (time + c[0] &lt;= c[1]) {
+            heap.add(c[0]);
+            time += c[0];
+        } else if (!heap.isEmpty() &amp;&amp; heap.peek() &gt; c[0]) {
+            time += c[0] - heap.poll();   // 反悔：门数不变，总时长变短
+            heap.add(c[0]);
+        }
+    }
+    return heap.size();
+}</pre>
+
+    <h3>最低加油次数</h3>
+    <p class="bio">
+      开车经过加油站时先不决定加不加，只把这个站的油量记进大根堆。等到油不够开到下一个位置了，再「穿越回去」，
+      从路过的站里挑油最多的补加一次。这样只在不得不加时才加，每次挑的又是油最多的站。
+    </p>
+    <pre class="code">// 最低加油次数：路过的加油站先不加，记进大根堆
+// 油不够开到下一个位置时，再从路过的站里挑油最多的「补加」
+public static int minRefuelStops(int target, int startFuel, int[][] stations) {
+    PriorityQueue&lt;Integer&gt; heap = new PriorityQueue&lt;&gt;((a, b) -&gt; b - a);
+    long fuel = startFuel;   // 当前能开到的最远位置
+    int ans = 0, i = 0;
+    while (fuel &lt; target) {
+        while (i &lt; stations.length &amp;&amp; stations[i][0] &lt;= fuel) {
+            heap.add(stations[i++][1]);
+        }
+        if (heap.isEmpty()) {
+            return -1;
+        }
+        fuel += heap.poll();
+        ans++;
+    }
+    return ans;
+}</pre>
+    <p class="tbl-note">练习：<a href="https://leetcode.cn/problems/course-schedule-iii/" target="_blank" rel="noopener">LeetCode 630 课程表 III</a>　<a href="https://leetcode.cn/problems/minimum-number-of-refueling-stops/" target="_blank" rel="noopener">LeetCode 871 最低加油次数</a></p>
+
+    <h2>五、覆盖与跳跃</h2>
+    <h3>跳跃游戏 II</h3>
+    <p class="bio">
+      维护两个值：<code>cur</code> 是跳 ans 步最远能到哪，<code>next</code> 是再多跳一步最远能到哪。
+      从左往右扫，一旦走过了 <code>cur</code>，说明必须再跳一步，此时 <code>cur</code> 更新为 <code>next</code>。
+      每个位置只看一次，O(n)，不需要 BFS。
+    </p>
+    <pre class="code">// 跳跃游戏 II：cur = 跳 ans 步最远到哪，next = 再跳一步最远到哪
+public static int jump(int[] nums) {
+    int cur = 0, next = 0, ans = 0;
+    for (int i = 0; i &lt; nums.length; i++) {
+        if (cur &lt; i) {        // 走到了 ans 步够不着的地方，必须再跳一步
+            ans++;
+            cur = next;
+        }
+        next = Math.max(next, i + nums[i]);
+    }
+    return ans;
+}</pre>
+
+    <h3>灌溉花园</h3>
+    <p class="bio">
+      每个水龙头覆盖一个区间，问最少开几个能盖住 <code>[0, n]</code>。先预处理 <code>right[i]</code>：左端点在 i 的所有区间里，
+      最远能盖到哪。这样就和跳跃游戏 II 一样了。和跳跃游戏不同的是这里可能盖不住：当前覆盖用完了，<code>next</code> 却没能越过 i，就返回 −1。
+      这个边界最容易写错，判断的是 <code>[i, i + 1]</code> 这一段有没有被盖住。
+    </p>
+    <pre class="code">// 灌溉花园：把每个水龙头变成区间，right[i] = 左端点 &lt;= i 的区间里最远能盖到哪
+// 之后就和跳跃游戏 II 完全一样
+public static int minTaps(int n, int[] ranges) {
+    int[] right = new int[n + 1];
+    for (int i = 0; i &lt;= n; i++) {
+        int l = Math.max(0, i - ranges[i]);
+        right[l] = Math.max(right[l], i + ranges[i]);
+    }
+    int cur = 0, next = 0, ans = 0;
+    for (int i = 0; i &lt; n; i++) {
+        next = Math.max(next, right[i]);
+        if (i == cur) {           // 当前覆盖到头了，必须再开一个
+            if (next &lt;= i) {
+                return -1;        // 开了也往前推不动，[i, i+1] 盖不住
+            }
+            ans++;
+            cur = next;
+        }
+    }
+    return ans;
+}</pre>
+    <p class="tbl-note">练习：<a href="https://leetcode.cn/problems/jump-game-ii/" target="_blank" rel="noopener">LeetCode 45 跳跃游戏 II</a>　<a href="https://leetcode.cn/problems/minimum-number-of-taps-to-open-to-water-a-garden/" target="_blank" rel="noopener">LeetCode 1326 灌溉花园的最少水龙头数目</a></p>
+
+    <h2>用对数器验证贪心</h2>
+    <p class="bio">
+      贪心的思路往往是「感觉对」，对数器能把感觉变成证据。暴力解不需要快，只需要一定对，所以越笨越好。
+      课程表 III 的暴力解枚举所有课程子集，对每个子集再枚举所有修读顺序，只要有一种顺序能全部按时修完，这个子集就可行。
+      n 取 6 以内，全排列的开销完全可以接受。
+    </p>
+    <pre class="code">// 暴力解：枚举所有子集，再枚举子集里课程的所有修读顺序，看能不能全部按时修完
+static int bruteCourse(int[][] cs) {
+    int n = cs.length, best = 0;
+    for (int mask = 0; mask &lt; (1 &lt;&lt; n); mask++) {
+        if (Integer.bitCount(mask) &lt;= best) continue;
+        List&lt;int[]&gt; sel = new ArrayList&lt;&gt;();
+        for (int i = 0; i &lt; n; i++) if (((mask &gt;&gt; i) &amp; 1) == 1) sel.add(cs[i]);
+        if (anyOrder(sel, new boolean[sel.size()], 0, 0)) best = Integer.bitCount(mask);
+    }
+    return best;
+}
+static boolean anyOrder(List&lt;int[]&gt; sel, boolean[] used, int cnt, int time) {
+    if (cnt == sel.size()) return true;
+    for (int i = 0; i &lt; sel.size(); i++) if (!used[i] &amp;&amp; time + sel.get(i)[0] &lt;= sel.get(i)[1]) {
+        used[i] = true;
+        if (anyOrder(sel, used, cnt + 1, time + sel.get(i)[0])) { used[i] = false; return true; }
+        used[i] = false;
+    }
+    return false;
+}</pre>
+    <p class="bio">
+      其他几题的暴力解也是同一个思路：最大数枚举全排列，两地调度枚举所有分组，合并果子枚举每一步合并哪两根，
+      会议只占一天用二分图匹配求真实最大值，跳跃游戏和灌溉花园用 DP。贪心解和暴力解在 3000 组随机数据上一旦不一致，
+      就把那组输入打印出来，数据很小，手推一遍基本就能看出贪心策略漏了什么情况。
+    </p>
+
+    <h2>参考</h2>
+    <p class="bio">
+      章节顺序和题目选择来自左程云的「算法讲解」课程，课程代码和课件在
+      <a href="https://github.com/algorithmzuo/algorithm-journey" target="_blank" rel="noopener">algorithmzuo/algorithm-journey</a>。
+      本文代码是我按自己的习惯重写的，没有照搬课程代码。
+    </p>
+
+    <footer>
+      <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

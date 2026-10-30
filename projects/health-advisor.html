@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>个人健康顾问助手 · 多模态文档理解 + RAG — 李恒桓</title>
-<meta name="description" content="体检报告的 OCR + VLM 双通道解析、SQL / BM25 / Dense 三路召回与 RRF 融合、无证据不说话的幻觉防范与记忆治理。">
+<meta name="description" content="个人健康顾问助手的项目解析：业务闭环与难题，OCR + VLM 双通道报告解析，SQL / BM25 / Dense 三路召回与索引选型，确定性校验、上下文压缩与记忆治理，以及各部分的现状与差距。">
 <link rel="canonical" href="https://lihenghuan.com/projects/health-advisor.html">
 <link rel="stylesheet" href="../assets/style.css">
 </head>
@@ -17,198 +17,280 @@
     <div class="detail-meta">多模态文档理解 + RAG <span class="when">｜ 2026.02 — 2026.05</span></div>
     <div class="stack">Go 1.25 · gRPC · Python 3.11 · LangGraph · Milvus · PostgreSQL · Redis · React 19 · pytest</div>
 
-    <h2>出发点</h2>
-    <p class="bio">
-      健康场景和一般问答的区别在于<b>错一个数字的代价</b>。所以整个系统的设计纪律只有一条：
-      <b>不猜值</b>——宁可拒绝并留痕，也不做静默修正。下面三块都是这条纪律在不同层面的展开。
-    </p>
+    <h2>业务理解</h2>
 
-    <h2>一、OCR + VLM 多模态解析</h2>
+    <h3>1. 定义</h3>
+    <p class="bio">患者上传检验或体检报告后，系统识别出每一项指标的名称、数值、单位和参考区间，再结合本人的历史报告、健康档案和医学资料，生成通俗、带出处的解读。患者看完报告后还可以继续追问。</p>
+    <p class="bio">产品定位是<b>患者教育和医务人员随访的辅助工具</b>。它解释报告写了什么、哪些指标异常、哪些情况还不确定、下一步该找谁咨询。它不做诊断，不做急诊分诊，也不开治疗方案。</p>
+    <p class="bio">目前是个人原型，没有真实的医院用户量。试点容量按一家医院 1–3 个门诊或随访团队来规划，这是设计假设，不是实际数据。</p>
 
-    <h3>问题</h3>
-    <p class="bio">
-      业务需求是患者上传检验或体检报告，来源有三类：电子 PDF、手机拍的照片、扫描件。系统要能解析这三类输入，而它们各有各的难点。
-    </p>
-    <p class="bio">
-      电子 PDF 的文字通常能准确提取，表格却未必能还原：有的表跨页后不再重复表头，有的用合并单元格表示「血常规」这样的类别，还有的根本没有画表格线。
-    </p>
-    <p class="bio">
-      照片和扫描件的问题出在识别环节。OCR 返回的是零散的文字块，块的顺序和表格的行列并不对应，「结果」列和「参考区间」列很容易错位，数值就对到了别的指标上。
-      后面的 LLM 会把错数总结得很通顺，最终报告里看不出任何问题。
-    </p>
-
-    <h3>处理方式</h3>
-    <p class="bio">
-      先按输入形态路由：电子 PDF 走表格结构还原；图片和扫描件同时走 OCR 和 VLM 两个通道，再按下面的规则合并两路结果。
-    </p>
+    <h3>2. 业务闭环</h3>
+    <p class="bio"><b>参与角色</b></p>
+    <p class="todo">【待补】参与角色表（飞书表格没有导出）</p>
+    <p class="bio"><b>核心业务对象</b>：体检报告和指标、指标目录（标准名称和参考区间）、医学知识证据（指南、病例、论文）、解读报告（带版本）、个人健康档案（病史、用药、过敏等）。</p>
+    <p class="bio"><b>主流程</b></p>
+    <ol class="numbered">
+      <li><b>上传</b>：患者上传化验单或体检报告的照片。</li>
+      <li><b>识别</b>：检查图片质量，抽出每项指标的名称、数值、单位和参考区间，判断是否异常。图片不清楚或识别置信度低时，请患者补拍，最多 3 次。</li>
+      <li><b>结合个人情况</b>：读取患者的健康档案，比如既往病史和长期用药；如果有历史报告，计算同一指标的变化趋势。</li>
+      <li><b>查资料</b>：围绕异常指标和患者关心的问题，检索指标目录、指南、病例和论文。证据不够时，请患者补充材料；多次补充后仍不够，就拒绝生成。</li>
+      <li><b>生成解读</b>：报告分四部分——报告里的事实、可能的含义、还不确定的信息、就医和生活方式上的建议。每条结论都标出依据的来源。</li>
+      <li><b>校验</b>：用程序核对引用是否真实存在、数值是否和报告原值一致、指标名是否正确、每条建议是否有依据。不通过就重写；重写 3 次仍不通过，就只保留通过校验的章节，建议类章节一律去掉。</li>
+      <li><b>发布与追问</b>：患者在页面上查看解读和证据卡片，可以继续追问，比如【那晨跑空腹行吗】。</li>
+      <li><b>沉淀</b>：把本次报告中的关键信息（异常指标、报告里写明的用药等）写进健康档案，并保存本次分析的摘要。下次上传报告时，系统会用到这些历史信息。最后一步和第 3 步首尾相连，形成闭环。</li>
+    </ol>
+    <p class="bio"><b>目标闭环与现状的差距</b></p>
     <ul class="plain">
-      <li>同名同值：交叉校验通过，合并成一条。</li>
-      <li>同名异值：采信 VLM，因为它能看懂版面，知道数字属于哪一行哪一列。OCR 那条进入 <code>rejected</code>，原因记为「通道冲突采信 VLM」。</li>
-      <li>只有 OCR 识别到：过一遍常识范围表，越界的进入 <code>rejected</code>。</li>
+      <li><b>医生审核</b>：目标是发布前加一道医生审核，命中以下任一条件就送审，医生批准后才发布：
+        <ul class="plain"><li>有偏高、偏低或危急的指标；</li><li>识别置信度低于 0.5；</li><li>补拍达到上限后被放行。</li></ul>
+      </li>
+      <li>现在报告生成后会直接发布，医生审核还没实现。</li>
+      <li><b>校验</b>：第 6 步的校验在 9 月 23 日被暂时关掉了，现在不会触发重写。</li>
+      <li><b>档案写入</b>：第 8 步目前是自动写入，不需要患者确认。患者事后可以在档案页查看、修改和删除。</li>
+    </ul>
+
+    <h3>3. 业务难题</h3>
+    <p class="bio"><b>难题一：输入形式多样，质量不可控</b></p>
+    <ul class="plain">
+      <li><b>报告的形态多</b>：手机拍照、扫描件、电子 PDF 都有。
+        <ul class="plain"><li>照片会有模糊、反光、遮挡、拍歪；</li><li>每家医院的报告版式不同；</li><li>表格会跨页、有合并单元格，有的表格没有表格线。</li></ul>
+      </li>
+      <li><b>提问的方式多</b>：既有【糖化血红蛋白 6.4 偏高吗】这种精确提问，也有【血糖有点高还能跑步吗】这种口语提问。还有【那游泳呢】这种依赖上文的追问。</li>
+      <li><b>对系统的要求</b>：按输入形态走不同的识别方式；识别不了时，明确请用户补拍，不能硬着头皮生成。</li>
+      <li><b>现状</b>：网页上传目前只支持图片，PDF 解析只在后台离线任务里能用，还没接到网页上。</li>
+    </ul>
+    <p class="bio"><b>难题二：数值必须精确。</b></p>
+    <ul class="plain">
+      <li><b>错一个数，后面全错</b>：指标名、数值、单位、参考区间只要错一个，异常判断和解读就全错了。</li>
+      <li><b>参考区间不通用</b>：同一个指标，不同实验室的参考区间可能不同，单位也可能不同（mg/dL 和 mmol/L）。</li>
+      <li><b>错误会被掩盖</b>：OCR 容易把一行的数值对到另一行的指标上。大模型会把错误的数值解释得很通顺，患者根本看不出来。</li>
+      <li><b>对系统的要求</b>：每个数值都能对回原图；不同识别方式的结果要交叉核对；明显不合常识的值直接拦下；判断不了就标【不确定】，不能猜。</li>
+    </ul>
+    <p class="bio"><b>难题三：解读必须有依据，而且不能越界</b></p>
+    <ul class="plain">
+      <li><b>大模型的幻觉</b>：
+        <ul class="plain"><li>会编出看起来很真实的引用；</li><li>引用是真的，也可能和结论无关；</li><li>可能把单个异常值说成确定的诊断。</li></ul>
+      </li>
+      <li><b>证据之间可能矛盾</b>：一条资料推荐运动，另一条说某些情况下要避免运动。</li>
+      <li><b>对系统的要求</b>： 每条结论都要绑定证据；区分事实、推断和未知；证据有冲突时，要写明【存在不同建议】；没有证据就不给建议。</li>
+    </ul>
+    <p class="bio"><b>难题四：个性化需要历史信息，历史信息又有风险</b></p>
+    <ul class="plain">
+      <li><b>为什么需要历史</b>：同一个指标，对长期吃他汀的人和对健康人，含义不同。多次报告放在一起看趋势，比只看单次更有价值。</li>
+      <li><b>风险一：档案被污染</b>。检索到的指南内容可能被误当成患者本人的信息写进档案，比如把【每周运动 150 分钟】记成患者的目标；也有人会在对话里写入恶意指令。</li>
+      <li><b>风险二：隐私</b>。健康信息属于敏感个人信息，泄露的代价很高。</li>
+      <li><b>对系统的要求</b>： 写进档案前要过一道检查；档案内容加密存储；用户之间严格隔离；患者能查看、修改、删除自己的档案。</li>
+    </ul>
+    <p class="bio"><b>难题五：患者的说法和医学术语对不上</b></p>
+    <ul class="plain">
+      <li><b>口语和术语不一致</b>：患者说【坏胆固醇】【转氨酶高】【血稠】，资料里写的是【低密度脂蛋白胆固醇】【丙氨酸氨基转移酶】。按字面去查，很可能一条都查不到。</li>
+      <li><b>追问缺主语</b>：短追问单独拿去检索，系统不知道【那】指的是什么。</li>
+      <li><b>对系统的要求</b>：把口语映射到标准术语；追问时带上前文；不同类型的问题，走不同的查找方式。</li>
+    </ul>
+    <p class="bio"><b>难题六：处理流程长，中途需要患者参与</b></p>
+    <ul class="plain">
+      <li><b>流程长</b>：一份报告要经过识别、查档案、查资料、生成、校验，耗时以分钟计，中间可能要停下来等患者补拍。</li>
+      <li><b>重跑代价高</b>：补拍后从头重跑，会重复花大模型的钱，还可能重复写数据库。</li>
+      <li><b>对系统的要求</b>： 任务能暂停，也能接着跑；已完成的步骤不重做；前端实时看到进度；每份报告花了多少钱可以统计，也能设上限。</li>
+    </ul>
+
+    <h2>一、OCR + VLM 多模态文档解析</h2>
+    <p class="bio">业界公开评测里，没有哪一种解析方式能把检验报告的数值稳定读对：中文检验报告上，最好的模型配合 OCR 时数值字段召回约 89%，纯视觉模型只有 72% 左右（<a href="https://arxiv.org/pdf/2508.16674" target="_blank" rel="noopener">MedRepBench</a>）。因此本项目不押单一通道，而是按输入形态分流，用两个错误类型不同的通道交叉核对，核对不了就拒绝并留痕。</p>
+
+    <h3>1.1 对应业务难题</h3>
+    <p class="bio">业务要求患者能直接上传检验或体检报告，来源有三类：电子 PDF、扫描件、手机照片。三类输入出错的方式不同：</p>
+    <ul class="plain">
+      <li><b>电子 PDF</b>：文字通常能准确提取，但表格未必能还原。有的表跨页后不再重复表头，有的用合并单元格表示【血常规】这类类别，还有的根本没有表格线。</li>
+      <li><b>照片和扫描件</b>：问题出在识别环节。OCR 返回的是零散的文字块，块的顺序和表格的行列并不对应，【结果】列和【参考区间】列很容易错位，数值会对到别的指标上。</li>
+      <li><b>错误会被掩盖</b>：后面的 LLM 会把错数总结得很通顺，报告里就看不出问题了。</li>
+    </ul>
+
+    <h3>1.2 业务拆解</h3>
+    <p class="bio">【把一份报告变成可信的结构化指标】可以拆成五个子问题，每一个都可能单独出错：</p>
+    <p class="todo">【待补】五个子问题的拆解表（飞书表格没有导出）</p>
+
+    <h3>1.3 业界现有做法与优缺点</h3>
+    <p class="bio">两组公开评测给出了取舍的数量级：</p>
+    <ul class="plain">
+      <li><a href="https://arxiv.org/pdf/2508.16674" target="_blank" rel="noopener">MedRepBench</a> 用 1,925 张去标识的中文医疗报告图片（照片、截图和电子文档）测试了项目名、数值、单位、参考区间和异常标记的抽取。LLaMA-4-Maverick 纯看图时数值召回 72.3%，提供 OCR 文本后升到 87.4%；Qwen2.5-VL-32B 的异常标记召回从 84.0% 降到 59.7%。去掉 OCR 后，平均召回下降 10% 到 20%。</li>
+      <li><a href="https://arxiv.org/html/2412.07626v2" target="_blank" rel="noopener">OmniDocBench</a> 的表格子集上，基于 OCR 的 RapidTable 得分 82.5，通用视觉模型 Qwen2-VL-7B 为 71.0；表格旋转后，GPT-4o 从 62.7 跌到 14.2。但在模糊扫描件上，视觉模型反而更稳（编辑距离 Qwen2-VL 0.082，MinerU 0.150，越低越好）。</li>
+    </ul>
+    <p class="bio">结论是：管线和 OCR 擅长表格结构和精确字符，视觉模型擅长版面理解和退化图像，两者的错误类型不同。对数值精度要求高的场景，单用哪一种都不够。</p>
+
+    <h3>1.4 本项目处理方式</h3>
+    <figure class="fig"><img src="health-advisor-parse-flow.png" alt="解析流程：PDF 只还原表格结构，图片靠 OCR 与 VLM 互相核对"></figure>
+    <p class="bio">左路是 PDF，字符本身可信，只做结构还原；右路是图片，两个通道的结果在合并裁决处互相核对，置信度不够就回到上传要求补拍。</p>
+    <p class="bio"><b>按输入形态路由。</b> 电子 PDF 有文本层，字符本身是准的，不再过 OCR，只做表格结构还原。图片和扫描件同时走 OCR 和 VLM 两个通道，利用二者错误类型不同做交叉核对。</p>
+    <p class="bio">PDF 表格还原由 <code>TableParseContext</code> 跨页保存状态：续页没有表头时沿用上一页列映射（条件不满足就不接，宁可漏接不错接）；跨行合并时继承上一个非空名称；跨列说明行和重复表头丢弃；章节标题行清空待继承状态。</p>
+    <p class="bio"><b>双通道合并裁决</b>（<code>merge_channel_metrics</code>，单张图内）：</p>
+    <ul class="plain">
+      <li>同名同值：交叉校验通过，合并成一条；</li>
+      <li>同名异值：采信 VLM，OCR 那条进入 <code>rejected</code>，原因记为【通道冲突采信 VLM】；</li>
+      <li>只有 OCR 识别到：过常识范围表，越界的进入 <code>rejected</code>；</li>
       <li>只有 VLM 识别到：同样过常识范围表。</li>
     </ul>
-    <p class="bio">
-      合并后的结果做归一化和异常判定，再进入后续环节。之后按确定性规则计算置信度，整体置信度低于 <span class="m">0.5</span> 时请用户补拍，补拍结果和之前的结果做幂等合并。
-      跨图片的冲突，比如两张图里同一个指标的值不同，两条都保留，只打 warning，交给下游处理。
-    </p>
+    <p class="bio">同名异值时采信 VLM，依据是错误类型：OCR 的典型错误是行列错位，VLM 看整张图，能判断【这个数属于这一行】。常识范围表 <code>COMMON_SENSE_RANGES</code> 只校验白名单里的指标（身高 50–250 cm、收缩压 50–300 mmHg 等），单位对不上时不拦，定性结果直接放行。被拒条目以 <code>channel_review</code> 观察记录写进任务状态，可以追溯。</p>
+    <p class="bio"><b>归一与异常判定</b>（<code>normalize_metric</code> + <code>flag_of</code>）：指标名全角转半角、去掉 ↑↓ 标记；查指标目录回填编码，只有单位一致时才用目录的参考区间，否则保留报告原文；超出区间判 high/low，偏离 2 倍或命中关键项规则（空腹血糖 ≥ 7.0、收缩压 ≥ 140、舒张压 ≥ 90）判 critical，判断不了标 <code>unknown</code>。</p>
+    <p class="bio"><b>置信度、补拍与幂等。</b> 单通道结果乘 0.6；双通道按指标名重合度乘 0.6–1.0。整体置信度低于 0.5 时请求补拍，最多 3 次，到上限后放行并记 <code>VISION_LOW_CONFIDENCE_ACCEPTED</code>。报告级 <code>content_hash = md5(user_id + 体检日期 + 指标集合签名)</code>，重复上传直接返回已有报告。</p>
+    <p class="bio"><b>和业界做法的对应关系。</b> 这套方案是【管线 + 视觉模型】的混合：PDF 走类似版面管线的规则还原，图片用 OCR 和 VLM 互相当参照。它和业界方案的最大区别是【不猜值】：判断不了标 <code>unknown</code>，单位不一致保留原文，续页宁可漏接，没有图片不用 Demo 数据，被拒的值留痕不删。</p>
+
+    <h3>1.5 现状与差距</h3>
+    <ul class="plain">
+      <li><b>双通道没有实测</b>：VLM 接口当前返回 <code>model_not_found</code>，冲突裁决没有实测数据。【采信 VLM】是按错误类型定的工程规则，没有用真值校准，而上面的公开评测显示 VLM 在数值字段上不如 OCR 辅助的方案，这条规则需要用人工标注的真实报告重新验证。</li>
+      <li><b>跨图片冲突</b>：多张图出现同名异值时，<code>_dedupe_keep_conflicts</code> 两条都保留，只打 warning，交给下游处理。</li>
+      <li><b>PDF 未接入网页</b>：Go 上传接口只接受图片，PDF 解析只在 Celery 离线任务里调用。</li>
+      <li><b>已有实验数据</b>（合成样本）：2 份合成 PDF 上，结构还原把空名率从 2.38% 降到 0，列串位率（多页表 11.1%、无线表 50%）降到 0；合成图片清晰图抽到 5 项，污渍图 4 项，遮挡图 4 项，模糊图 0 项并触发补拍。</li>
+      <li><b>下一步</b>：用去标识的真实报告建逐字段真值集，可参考 MedRepBench 的口径（项目名、数值、单位、参考区间、异常标记分别统计召回），并与云厂商专用接口做一组对照。</li>
+    </ul>
 
     <h2>二、多路召回与向量数据库索引优化</h2>
+    <p class="bio">业界的主流做法已经收敛到【BM25 + 向量混合召回、按排名融合、再精排】：Anthropic 的实验里，这套组合把前 20 条的检索失败率从 5.7% 降到 1.9%（<a href="https://anthropic.com/news/contextual-retrieval" target="_blank" rel="noopener">Contextual Retrieval</a>）。本项目沿用这个骨架，在此基础上加了结构化的 SQL 通道和证据级切块；在自己的小样本上，混合检索提高了首条准确率，精排则出现了负收益。</p>
 
-    <h3>问题</h3>
-    <p class="bio">问题分业务和技术两部分。业务上，用户的提问类型很杂，单一检索方式覆盖不全：</p>
+    <h3>2.1 对应业务难题</h3>
+    <p class="bio"><b>业务问题：用户的问法多样，单一检索方式覆盖不全。</b></p>
     <ul class="plain">
-      <li>精确指标：「糖化血红蛋白 6.4 偏高吗」，要查数值、参考区间和本人的历史数据；</li>
-      <li>专有名词：「低密度脂蛋白参考区间」，要字面匹配；</li>
-      <li>口语转述：「血糖有点高还能跑步吗」，要语义匹配。</li>
+      <li>精确指标：【糖化血红蛋白 6.4 偏高吗】，需要查数值、参考区间和本人历史；</li>
+      <li>专有名词：【低密度脂蛋白参考区间】，需要字面匹配；</li>
+      <li>口语转述：【血糖有点高还能跑步吗】，需要语义匹配。</li>
     </ul>
-    <p class="bio">
-      另外还有两条约束：用户本人的指标数据不能进入共享索引；知识库要能按版本发布和回滚。
-      技术上，向量库里的数据量变大以后，索引本身的内存开销很大。
-    </p>
-    <p class="bio">整体链路是：文本切块 → 查询计划（多 Query）→ 三路召回 → RRF 融合 → 精排。</p>
+    <p class="bio">另外有两条约束：用户本人的指标数据不能进入共享索引；知识库要能按版本发布和回滚。</p>
+    <p class="bio"><b>技术问题：数据量变大后，索引的内存开销很大。</b> 论文库是长文本，切块后数量远多于知识条目，全部常驻内存的图索引成本高。</p>
 
-    <h3>文本切块</h3>
-    <p class="bio">
-      切块策略按数据形态选。每种算法放在单独的文件里，由注册表 <code>resolve_text_strategy</code> 选择，优先级依次是显式参数、环境变量 <code>CHUNK_STRATEGY</code>、自动选择。
-    </p>
+    <h3>2.2 业务拆解</h3>
+    <p class="bio">【给一个问题找到对的证据】可以拆成七个环节：</p>
+    <p class="todo">【待补】七个环节的拆解表（飞书表格没有导出）</p>
+
+    <h3>2.3 业界现有做法与优缺点</h3>
+    <p class="bio"><b>检索与融合方式</b></p>
+    <p class="todo">【待补】对比表（飞书表格没有导出）</p>
+    <p class="bio"><b>存储引擎</b></p>
+    <p class="todo">【待补】对比表（飞书表格没有导出）</p>
+    <p class="bio"><b>切块与查询增强</b></p>
+    <p class="todo">【待补】对比表（飞书表格没有导出）</p>
+    <p class="bio"><b>向量索引</b>（内存数据来自 <a href="https://zilliz.com/blog/demystify-milvus-sizing-tool" target="_blank" rel="noopener">Milvus 容量文章</a>）</p>
+    <p class="todo">【待补】对比表（飞书表格没有导出）</p>
+
+    <h3>2.4 本项目处理方式</h3>
+    <p class="bio">整体顺序是：切块 → 查询计划 → 三路召回 → RRF 融合 → 父块扩展 → 按需精排。</p>
+    <p class="bio"><b>切块：按数据形态选策略。</b> 策略由注册表 <code>resolve_text_strategy</code> 选择，优先级是显式参数、环境变量 <code>CHUNK_STRATEGY</code>、自动选择。</p>
     <ul class="plain">
-      <li><code>evidence_row</code>：用于指标目录、指南要点、病例这类结构化条目。一个条目转成一段自然语言，作为一个块。指标名、数值、单位和参考区间必须在同一个块里，拆开就没有意义了。</li>
-      <li><code>semantic_split</code>：用于论文这类长文本。计算相邻句子的向量相似度，在相似度明显下降的地方切开，切分点落在主题之间，不会切断句子。</li>
-      <li>父子块：用于只在开头出现一次主题的长文。比如一段讲血脂运动干预的指南，只有第一行写了「低密度脂蛋白胆固醇」，后面的块都不含这个词，检索时匹配不到，送去生成时还可能被对到错误的指标上。子块是带重叠的滑动窗口，父块是整篇文档，长度 1200 到 3000 字。检索用子块，命中后换成父块，再送去精排和生成。</li>
+      <li>指标目录、指南要点、病例这类知识条目用 <code>evidence_row</code>：一条拼成一段文本，整条一块，如 <code>体检指标 低密度脂蛋白胆固醇 | 编码 LDL_C | 单位 mmol/L | 参考区间 0-3.4</code>。</li>
+      <li>论文等长文本用 <code>semantic_split</code>：相邻句子向量余弦相似度低于 0.55 处断开，窗口上限 512 字、重叠 128 字。没有 embedding 时退回滑动窗口，标签如实记为 <code>semantic_window</code>。</li>
+      <li>父子块：同一来源文档（<code>source_id</code>）的所有条目拼起来，超过 1200 字就生成一个父块（截断到 3000 字），条目本身作为子块，用 <code>parent_key</code> 指向父块。检索只查子块，命中后换成父块并去重。这和 Anthropic 的上下文增强解决的是同一个问题，但不需要对每块调 LLM。</li>
     </ul>
-    <p class="bio">
-      没有 embedding 函数时，语义切分会退回滑动窗口。落库的策略标签这时记为 <code>semantic_window</code>，和实际行为保持一致，评测时口径才对得上。
-    </p>
-    <p class="bio">
-      在 30 项构造集、400 字符上限的条件下，固定长度切块的 Recall@5 是 <span class="m">0.833</span>，按结构或语义切分都是 <span class="m">1.0</span>。
-      上限改成 200 字符后，按符号切分的方案降到 0.867。父子块把证据中含主题词的比例从 <span class="m">37.5%</span> 提高到 <span class="m">100%</span>，单条证据的平均长度也从 130 字增加到 1,663 字。
-    </p>
-
-    <h3>查询计划</h3>
-    <p class="bio">
-      <code>QueryPlanner</code> 先把异常指标、用户提问和健康档案拆成若干主题，再为每个主题决定用哪些通道、查哪个分区、查询文本怎么改写。
-    </p>
-    <p class="todo">【待补】路由规则表（原文在飞书文档里，没有导出）。</p>
-    <p class="bio">
-      查询数量有上限：每个主题最多三个通道，超出时按 SQL、BM25、Dense、Image 的优先级裁剪；所有主题的查询总数超过 15 个时，再按优先级裁剪一次。
-    </p>
-    <p class="bio">
-      改写方面，精确查询交给 BM25 和 SQL，语义扩写过的查询交给 Dense。同义词词典覆盖 30 个指标的口语叫法，比如「坏胆固醇」对应 <code>LDL_C</code>。
-      词典只在原查询后面追加标准术语，不替换原词：BM25 依赖原词做精确匹配，替换掉可能让原本命中的结果丢失。追加带来的额外召回交给后面的 RRF 和精排处理。
-    </p>
-    <p class="bio">路由用规则而不用 LLM，是因为规则的结果可解释，没有调用成本，还能写单元测试。</p>
-
-    <h3>三路召回</h3>
-    <p class="bio">
-      SQL 通道查两类数据：一类是指标目录中的参考区间，属于共享知识；另一类是用户本人的体检指标，可以附带生成时序趋势。
-      查用户数据必须带 <code>user_id</code>，<code>user_id</code> 为空时不返回任何用户数据。这个通道需要 <code>metric_code</code> 这样的结构化条件，只传自然语言查询会返回空结果。
-    </p>
-    <p class="bio">
-      BM25 通道用的是 Milvus 2.5 的 BM25 Function。说它是声明式全文检索，是因为 Function 在建集合时就写进了 schema：
-      写入时，服务端用 <code>analyzer_params={"type": "chinese"}</code>（jieba 分词）自动把文本转成稀疏向量；查询时直接传文本，服务端用同一个分词器切词并计算 BM25 分数。
-      客户端不需要稀疏编码器，稠密向量和稀疏向量存在同一个集合里。限制是 Function 只能在建集合时声明，之后要改 schema 只能删掉集合重建。
-      BM25 出错时会退回 <code>LIKE</code> 子串匹配，两个集合分别处理。
-    </p>
-    <p class="bio">BM25 通道先后换过三种实现，在 9 条查询上测得的 MRR 如下：</p>
-    <p class="todo">【待补】三种 BM25 实现的 MRR 对比表（原文在飞书文档里，没有导出）。</p>
-    <p class="bio">
-      Dense 通道用 bge-m3 生成 1024 维向量，相似度用 COSINE。HyDE 只作用于这一路，默认关闭。
-    </p>
-
-    <h3>RRF 融合</h3>
+    <p class="bio"><b>查询计划。</b> <code>QueryPlanner</code> 把异常指标、用户提问和健康档案拆成主题，用规则决定每个主题走哪些通道、查哪个分区。每个主题最多 3 个通道，总查询数超过 15 时按 SQL > BM25 > Dense > Image 裁剪。同义词词典覆盖 30 个指标的口语叫法，只追加不替换原词。HyDE 只用在 Dense 一路，剥掉数字，默认关闭。</p>
+    <p class="bio"><b>三路召回。</b></p>
+    <p class="todo">【待补】三路召回的通道对比表（飞书表格没有导出）</p>
+    <p class="bio">SQL 通道是业界通用方案里没有的一路：用户私有数据根本不进向量库，精确数值也不交给向量检索。BM25 实现的演进数据（9 条查询，MRR）：按空格拆词的 LIKE 0.111 → 2-gram 切词 + LIKE 0.718 → Milvus 全文检索 0.944。</p>
+    <p class="bio"><b>融合。</b> 使用 RRF：</p>
     <pre class="code">rrf_score(d) = Σ_c  w_c / (K + rank_c(d))</pre>
-    <p class="bio">
-      融合只用排名、不用原始分数，因为三路分数的量纲不同：BM25 分数没有上限，Dense 是 0 到 1 之间的余弦相似度，SQL 没有分数。直接相加，结果会被尺度大的那一路主导。
-      RRF 只依赖排名，和分数尺度无关。某一路失败或返回空时，它不贡献分数，其余通道的排序不受影响。
-    </p>
-    <p class="bio">
-      网格搜索得出的最优 K 是 10，线上用的是 60。60 位于效果曲线平台区的中间，对数据分布不敏感；10 只是这批小样本上的最优值。
-      对结果影响更大的是每路的召回数量 N，最终定为 <span class="m">20</span>。各通道权重默认相同，因为调权重需要足够的数据支撑，设得不当会对评测集过拟合。
-    </p>
-    <p class="bio">
-      同一路通道同时查知识库和论文库时，两个集合的分数同样不可比，所以用交错合并：两边各自的第 i 条结果分别放在第 2i−1 和第 2i 位。
-      直接首尾拼接的话，后拼进来的集合在 RRF 里的排名会系统性偏低。
-    </p>
-    <p class="bio">
-      在 9 条查询上，RRF 的 MRR 是 <span class="m">1.0</span>，Dense 单路是 0.926，BM25 单路和直接混合分数都是 0.889。
-      在 92 条查询上，混合检索把 Hit@1 从 0.935 提高到 <span class="m">0.967</span>，Recall@10 却从 0.692 降到 0.682：RRF 会把多路都排在前面的文档往上推，只出现在某一路里的长尾文档因此掉出了前十。
-    </p>
-
-    <h3>精排</h3>
-    <p class="bio">
-      精排用 bge-reranker-v2-m3。它是 Cross-Encoder，把查询和每个候选拼在一起打分，比双塔向量更准；但每个候选都要单独算一遍，也没法提前建索引，所以只能放在召回之后。
-    </p>
-    <p class="bio">
-      融合完成后先做父块扩展：子块换成父块文本，同一个父块只保留排名最高的子块。然后由 <code>should_rerank</code> 判断要不要精排：
-      查询不超过 12 个字、且原词已经出现在排名第一的候选里，说明粗排已经准确，跳过精排；语义类和意译类查询才进精排。精排调用失败时直接用 RRF 的排序。
-    </p>
-    <p class="bio">
-      在 6 条查询的基线测试里，精排后 Recall@10 从 0.526 降到 0.430，效果是负的。进入精排的候选为 20、50、100 条时，Recall@10 分别是 0.581、0.436、0.430，平均延迟分别是 881、975、1246 毫秒。
-      候选越多效果越差，说明问题出在精排环节：噪声候选把相关文档挤到了后面。这组实验用的是代理标签，样本量也小，结论只能作为方向参考。
-    </p>
-
-    <h3>按规模选择索引</h3>
-    <p class="bio">
-      文本数据分两个集合存放，稠密向量用不同的索引。<code>evidence_text</code> 存指南、病例和指标目录，数据量小，内存不是瓶颈，所以用 HNSW 优先保召回，参数 M=32、efConstruction=200、ef=128。
-      <code>papers_lib</code> 存论文全文，数据量大，HNSW 的图结构常驻内存开销太高，所以用 IVF_SQ8，nlist=512。两个集合都另有一个 BM25 稀疏向量字段，用 <code>SPARSE_INVERTED_INDEX</code> 索引。
-    </p>
-    <p class="bio">
-      HNSW 是分层的近邻图，查询时从顶层开始逐层向下贪心搜索。M 是每个节点的连边数，决定图的密度，影响召回上限和内存占用；ef 是搜索时候选队列的长度，用延迟换召回。
-      在 5,250 个向量、30 条查询上扫参数，以 FLAT 暴力检索的结果为真值：M 取 8、16、32 时，Recall@10 分别为 0.565、0.796、0.873，是影响最大的参数；ef 取 32、64、128 时，Recall@10 分别为 0.587、0.760、0.887。
-      最终参数下 Recall@10 为 <span class="m">0.977</span>，P95 延迟 <span class="m">3.09ms</span>。
-    </p>
-    <p class="bio">
-      IVF 先把向量聚成 nlist 个簇，查询时只搜距离最近的 nprobe 个簇。SQ8 把每一维从 float32 压到 int8，向量部分的内存约为原来的四分之一。
-      对比实验从 80 篇论文中取了 320 个真实段落向量，扩充到 2,560 个，nlist 设为 64，结果如下：
-    </p>
-    <p class="todo">【待补】IVF / IVF_SQ8 对比表（原文在飞书文档里，没有导出）。</p>
-    <p class="bio">
-      量化本身对召回影响很小，召回下降主要是 nprobe 太小、漏掉了部分簇。两种索引的内存差异这次没有测出来。
-    </p>
-
-    <h3>服务端预过滤和数据隔离</h3>
-    <p class="bio">BM25 和 Dense 查询都把过滤条件写进 Milvus 的 <code>expr</code>，由服务端执行：</p>
+    <p class="bio">三路分数量纲不同（BM25 无上界、Dense 是 0–1 余弦、SQL 没有分数），按排名融合最稳。网格搜索最优 K=10，线上取平台期中间的 60；每路召回数 N=20；通道等权。这和 Elastic 的发现一致：小于 60 的 K 在评测上更优，但参数影响不大；加权融合需要带标注的查询来调，本项目没有足够标注，所以不用。知识库和论文库的结果轮流交错合并，避免后拼入的集合排名系统性偏低。</p>
+    <p class="bio"><b>精排。</b> bge-reranker-v2-m3，由 <code>should_rerank</code> 按需触发：短查询（不超过 12 字）且原词已在首位候选中就跳过；精排失败退回 RRF 结果。业界建议宽召回（约 150 条）再精排，本项目在小样本上得到的方向相反：候选 20 / 50 / 100 条时 Recall@10 为 0.581 / 0.436 / 0.430。</p>
+    <p class="bio"><b>索引按规模分治。</b></p>
+    <ul class="plain">
+      <li><code>evidence_text</code>（指南、病例、指标目录）：数据量小，内存不是瓶颈，用 HNSW 优先保召回，M=32、efConstruction=200、ef=128；</li>
+      <li><code>papers_lib</code>（论文全文）：数据量大，HNSW 图结构常驻内存开销太高，用 IVF_SQ8，nlist=512；</li>
+      <li>两个集合都另有一个 BM25 稀疏向量字段，用 <code>SPARSE_INVERTED_INDEX</code> 索引。</li>
+    </ul>
+    <p class="bio">HNSW 扫参时 M 影响最大（M=8 / 16 / 32 时 Recall@10 为 0.565 / 0.796 / 0.873）。IVF 对比说明量化本身几乎不损失召回，损失主要来自 nprobe 太小。</p>
+    <p class="bio"><b>服务端预过滤与数据隔离。</b> 过滤条件写进 Milvus 的 expr，在检索时执行，避免 pgvector 那种先检索后过滤导致的召回损失：</p>
     <pre class="code">tenant_id == "..." and knowledge_version == "..." and source_type in [...] and chunk_role == "child"</pre>
-    <p class="bio">
-      过滤要在检索过程中完成。先取 TopK 再过滤的话，剩下的结果可能远少于 K 条，召回量会明显下降。
-    </p>
-    <p class="bio">
-      <code>knowledge_version</code> 保证只检索已发布的知识版本，草稿不会出现在线上结果里，知识库也能回滚。<code>source_type</code> 区分指南、病例和指标目录；
-      论文存在单独的集合里，由 <code>_resolve_collections</code> 负责路由。<code>chunk_role == "child"</code> 排除父块，因为父块和大多数查询都沾点边，参与召回会白占候选位。
-    </p>
-    <p class="bio">
-      用户的私有数据不靠向量层隔离。<code>health_metrics</code> 和 <code>health_reports</code> 不写入任何向量索引，只能通过带 <code>user_id</code> 的 SQL 通道读取。
-    </p>
-    <p class="bio">
-      所有索引都能从 PG 的 <code>parsed_documents</code> 全量重建，事实数据和索引分开存储。9 月 23 日，Milvus 内嵌 etcd 的数据目录没有挂到持久卷上，全部索引元数据丢失，最后就是靠这个设计恢复的。
-    </p>
+    <p class="bio"><code>knowledge_version</code> 只查已发布版本，知识库可回滚；<code>chunk_role</code> 排除父块。用户私有数据不写入任何向量索引，只能通过带 <code>user_id</code> 的 SQL 通道读取。所有索引都能从 PG 的 <code>parsed_documents</code> 全量重建；9 月 23 日 Milvus 内嵌 etcd 数据目录未挂持久卷、丢失全部索引元数据时，就靠这一点恢复。</p>
 
-    <h3>目前的问题</h3>
+    <h3>2.5 现状与差距</h3>
     <ul class="plain">
-      <li><code>tenant_id</code> 读的是进程级环境变量，默认值 <code>dev-tenant</code>。系统实际上是单租户，schema 里只是预留了租户字段。</li>
-      <li>论文库没有做全量向量化。300 篇原始论文中有 182 篇完成了正文解析，IVF 对比只用了上面的小样本。</li>
-      <li><code>_parallel_retrieve</code> 名字叫并行，实际是串行的 for 循环，主题和通道数量增加时，延迟会线性增长。</li>
-      <li>agent 里 BM25 用的 top_k 是 10，和 RRF 实验定下的 N=20 不一致。</li>
+      <li><b>混合检索的收益有取舍</b>：92 条查询上 Hit@1 从 0.935 升到 0.967，Recall@10 从 0.692 降到 0.682。</li>
+      <li><b>精排和 HyDE 样本太小</b>：精排只有 6 条查询且用代理标签，HyDE 有效查询 13 条（Recall@10 0.597 → 0.622，延迟 1.47s → 4.12s）。结论只能作方向参考。</li>
+      <li><b>单租户</b>：<code>tenant_id</code> 读的是进程级环境变量（默认 <code>dev-tenant</code>），schema 只是预留了租户字段。</li>
+      <li><b>论文库未全量向量化</b>：300 篇中 182 篇完成正文解析，IVF 对比只用了小样本，内存差异没有实测。</li>
+      <li><b>检索是串行的</b>：<code>_parallel_retrieve</code> 实际是 for 循环，延迟随主题和通道数线性增长。</li>
+      <li><b>召回深度不一致</b>：agent 里 BM25 的 <code>top_k</code> 是 10，和实验定的 N=20 不一致。</li>
     </ul>
 
-    <h2>三、幻觉防范与记忆治理</h2>
-    <p class="bio"><b>无证据不说话。</b>每条建议必须绑定证据 ID，然后过四类确定性校验：</p>
-    <ul class="plain">
-      <li>引用越过白名单即判伪造；</li>
-      <li>数值与库内实测值比对，不一致就打回；</li>
-      <li>（另两类同属确定性规则，不依赖模型自评——因为自评在这里等于没有校验。）</li>
-    </ul>
-    <p class="bio">记忆这一侧单独设了门禁，主要防的是<b>投毒</b>：</p>
-    <ul class="plain">
-      <li><b>检索到的文档永不入记忆</b>——否则外部语料可以反向写进用户的长期记忆。</li>
-      <li>置信度不足直接丢弃；要落库必须用户确认。</li>
-      <li>存储用 <b>AES-256-GCM</b> 加密，<code>content_hash</code> 去重；注入时限定 token 预算，并在前端<b>透明展示</b>用了哪些记忆。</li>
-    </ul>
-    <!-- 可补充：四类校验的完整清单、打回率、记忆命中带来的效果变化 -->
+    <h2>三、幻觉防范、上下文压缩与记忆治理</h2>
+    <p class="bio">业界治理幻觉和记忆，常见做法是再调一次大模型：让模型判断回答有没有依据，让模型决定记什么、删什么。本项目把能确定的部分改成代码规则：引用、数值、专名由代码校验，压缩只删不改，记忆候选由规则生成。代价是语义层面的判断偏粗；另外，校验门禁目前处于关闭状态。</p>
 
-    <h2>如果重做</h2>
+    <h3>3.1 对应业务难题</h3>
     <ul class="plain">
-      <li>「拒绝」是这套系统最重要的输出之一，但拒绝之后怎么把话说清楚、让用户知道下一步该做什么，当时做得还不够。</li>
+      <li><b>解读必须有依据，而且不能越界。</b> 大模型会编出格式正确的引用；引用是真的，也可能和结论无关；可能抄错数值，或把单个异常值说成确定诊断。两条证据方向相反时，模型常常只挑一边下结论。</li>
+      <li><b>上下文会越来越长。</b> 健康档案、历史报告、检索证据、重写的草稿会很快占满窗口。固定取 20 条在小窗口会溢出，在大窗口又浪费；压缩时又不能改动数值。</li>
+      <li><b>个性化需要历史，历史又有风险。</b> 长期用药、既往病史会改变解读；但检索到的指南内容可能被当成患者本人的信息写进档案，对话里也可能有人写入恶意指令；健康信息又属于敏感个人信息。</li>
+    </ul>
+
+    <h3>3.2 业务拆解</h3>
+    <p class="todo">【待补】业务拆解表（飞书表格没有导出）</p>
+
+    <h3>3.3 业界现有做法与优缺点</h3>
+    <p class="bio"><b>幻觉防范</b></p>
+    <p class="todo">【待补】对比表（飞书表格没有导出）</p>
+    <p class="bio"><b>上下文压缩</b></p>
+    <p class="todo">【待补】对比表（飞书表格没有导出）</p>
+    <p class="bio"><b>长期记忆</b></p>
+    <p class="todo">【待补】对比表（飞书表格没有导出）</p>
+    <p class="bio">记忆投毒不是理论风险。MINJA 攻击只通过普通提问，就能在理想条件下实现超过 95% 的注入成功率、70% 以上的攻击成功率；在一个电子病历 Agent 的实验里，记忆库已有正常记录时，攻击成功率降到约 6.7%。研究还发现，用模型置信度做信任分数挡不住措辞巧妙的投毒：一组实验里 82 条被接受的记录中 54 条是投毒。作者建议用外部数据源做校验（<a href="https://arxiv.org/html/2601.05504v1" target="_blank" rel="noopener">论文</a>）。</p>
+
+    <h3>3.4 本项目处理方式</h3>
+    <p class="bio"><b>证据绑定。</b> 报告草稿分为事实、推断、未知和建议四部分，每条结论带 <code>evidence_ids</code>。本轮检索产出的证据 ID 构成引用白名单，【有没有依据】因此变成程序可以检查的内容。</p>
+    <p class="bio"><b>确定性校验</b>（<code>evidence/validator.py</code>，不调用模型）：</p>
+    <p class="todo">【待补】校验项表（飞书表格没有导出）</p>
+    <p class="bio">另有三项检查：<code>refuse_if_no_evidence</code> 在证据为空或事实类结论未绑定有效证据时拒答；<code>validate_advice_has_evidence</code> 要求每条运动和饮食建议至少带一个本轮证据 ID；<code>conflicts.py</code> 按主题归并证据、比较极性词方向，发现冲突时要求报告写明【存在不同建议】。</p>
+    <p class="bio">与业界的 LLM 自检相比，这套校验可复现、没有额外调用，但支持关系和冲突检测只能看关键词和极性词，语义层面的矛盾检测不出来。两者可以叠加：规则挡表面错误，模型或专用一致性模型判断语义支持。</p>
+    <p class="bio"><b>打回、降级和拒答。</b></p>
+    <ol class="numbered">
+      <li>校验失败产生 <code>CITATION_MISMATCH</code> 或 <code>NO_EVIDENCE</code>，条件边 <code>_citation_gate</code> 把流程送回 <code>report_draft</code> 重写，最多 3 次。重试计数放在 <code>_citation_validate</code> 节点里，因为 LangGraph 条件边对 state 的修改不会写入 checkpoint，在条件边里计数会一直是 0。</li>
+      <li>三次仍不通过，进入 <code>refuse</code> 节点按章节降级：通过的章节保留，建议类章节只要缺证据或方向冲突就降级；没有任何章节通过则整篇拒答。</li>
+      <li>模型调用失败或任务 token 预算用完时，只拼接已抽取的事实，不生成建议。</li>
+    </ol>
+    <p class="bio"><b>上下文预算与压缩。</b> 证据预算按下式计算：</p>
+    <pre class="code">证据预算 = 模型窗口 − system prompt − 指标/趋势/档案占用 − 输出预留(4096)</pre>
+    <p class="bio">每条证据正文默认截取 200 字，预算充足时放宽到 400 字，<code>evidence_id</code> 和 <code>source_url</code> 始终保留。62 条语料下，8K / 16K / 64K 窗口分别放入 2 / 20 / 62 条。超过阈值时按三层规则压缩：证据只留被引用的条目，观察记录按名称去重，讨论只留结论。和 LLM 摘要、LLMLingua 不同，这里只删不改，数值不可能被改写。1 / 2 / 3 倍语料下，估算 token 分别从 13,431 / 27,008 / 40,610 降到约 1,862，引用完整率 100%，没有引入新数字。</p>
+    <p class="bio"><b>记忆治理。</b></p>
+    <ul class="plain">
+      <li><b>写入门禁</b>（<code>MemoryCurator</code>）：来源为 <code>document</code>、<code>webpage</code>、<code>report</code> 的候选直接抛异常；匹配注入式措辞（【请记住】【忽略之前的所有指令】等中英文正则）或长度超过 100 字也抛异常；置信度低于 0.3 的候选直接丢弃。与 Mem0 让模型决定记什么不同，这里的候选由规则从患者本人的报告里生成，检索证据永远不进记忆。</li>
+      <li><b>加密与去重</b>：正文用 AES-256-GCM 加密，密钥由 <code>KMS_KEY_DEV</code> 经 SHA-256 派生，每次随机 12 字节 nonce，格式与 Go 侧 <code>crypto/kms.go</code> 一致；用 <code>content_hash = SHA-256(明文)</code> 判重，无需解密。</li>
+      <li><b>生命周期</b>：更新走版本链（插入新行，旧行标记 <code>superseded_at</code>）；自动生成的记忆 90 天未被佐证，置信度乘 0.5，低于 0.3 进入待确认队列，由 Celery beat 每日执行；支持单条和全部软删除；写入、更新、删除、衰减、确认都记审计日志。</li>
+      <li><b>注入预算</b>：<code>build_injection</code> 把档案和相关情景记忆组装成文本，默认上限 500 token，同时生成 <code>injection_items</code> 供前端展示。</li>
+    </ul>
+
+    <h3>3.5 现状与差距</h3>
+    <ul class="plain">
+      <li><b>确定性校验处于关闭状态</b>：9 月 23 日为先做召回实验，<code>_citation_validate</code> 中的校验代码被注释掉，节点直接放行，打回流程不会触发。校验函数只在函数级测试中验证过：伪造 ID、无关引用、虚构指标名、缺证据的建议都能拦下。</li>
+      <li><b>prompt 与规则冲突</b>：报告 prompt 允许饮食建议的 <code>evidence_ids</code> 为空，与 <code>validate_advice_has_evidence</code> 的规则冲突。</li>
+      <li><b>记忆自动写入</b>：9 月 20 日起，主流程以 <code>confirmed=True</code> 直接调用 <code>commit</code>，不再需要用户确认；只有衰减到阈值以下的条目需要确认。</li>
+      <li><b>部分门禁未生效</b>：来源检查和低置信丢弃写在 <code>propose_candidate</code> 里，主流程绕过它直接调用 <code>commit</code>，而 <code>commit</code> 只做注入检测和去重。实际起保护作用的是候选的生成方式：来源为 <code>metric_abnormal</code> 或 <code>report_statement</code>，置信度固定在 0.5–0.6。</li>
+      <li><b>去重哈希未加盐</b>：【高血压】这类短内容可以通过字典反推。</li>
+      <li><b>前端展示待确认</b>：<code>ReportView.tsx</code> 开头注释提到【记忆注入】，但组件代码里没找到对应渲染逻辑。</li>
+      <li><b>注入防护的边界</b>：正则只覆盖已知措辞；结合 MINJA 的研究，更稳妥的方向是用外部数据源核对写入内容，比如用药信息与报告原文或处方记录对照。</li>
+    </ul>
+
+    <h2>参考资料</h2>
+    <p class="bio"><b>文档解析</b></p>
+    <ul class="plain">
+      <li><a href="https://arxiv.org/pdf/2508.16674" target="_blank" rel="noopener">MedRepBench: A Comprehensive Benchmark for Medical Report Interpretation</a></li>
+      <li><a href="https://arxiv.org/html/2412.07626v2" target="_blank" rel="noopener">OmniDocBench: Benchmarking Diverse PDF Document Parsing</a></li>
+      <li><a href="https://arxiv.org/html/2506.20168v1" target="_blank" rel="noopener">Seeing is Believing? Mitigating OCR Hallucinations in Multimodal LLMs</a></li>
+      <li><a href="https://www.paddleocr.ai/latest/en/version3.x/pipeline_usage/PP-StructureV3.html" target="_blank" rel="noopener">PaddleOCR PP-StructureV3 文档</a></li>
+      <li><a href="https://ai.baidu.com/ai-doc/OCR/Ekvakju92" target="_blank" rel="noopener">百度智能云：医疗检验报告单识别</a></li>
+      <li><a href="https://cloud.tencent.com/document/api/1314/56238" target="_blank" rel="noopener">腾讯云：医疗报告结构化</a></li>
+      <li><a href="https://www.ithome.com/0/813/593.htm" target="_blank" rel="noopener">七部门《关于进一步推进医疗机构检查检验结果互认的指导意见》报道（IT之家）</a></li>
+    </ul>
+    <p class="bio"><b>检索与索引</b></p>
+    <ul class="plain">
+      <li><a href="https://anthropic.com/news/contextual-retrieval" target="_blank" rel="noopener">Anthropic: Introducing Contextual Retrieval</a></li>
+      <li><a href="https://www.elastic.co/blog/improving-information-retrieval-elastic-stack-hybrid" target="_blank" rel="noopener">Elastic: Improving information retrieval in the Elastic Stack: Hybrid retrieval</a></li>
+      <li><a href="https://docs.zilliz.com/docs/full-text-search" target="_blank" rel="noopener">Zilliz: Full Text Search</a></li>
+      <li><a href="https://zilliz.com/blog/demystify-milvus-sizing-tool" target="_blank" rel="noopener">Zilliz: Demystifying the Milvus Sizing Tool</a></li>
+      <li><a href="https://thebuild.com/blog/on-pgvectorscale-and-hybrid-search-without-an-elasticsearch-sidecar/" target="_blank" rel="noopener">On pgvectorscale and hybrid search without an Elasticsearch sidecar</a></li>
+      <li><a href="https://www.trychroma.com/research/evaluating-chunking" target="_blank" rel="noopener">Chroma: Evaluating Chunking Strategies for Retrieval</a></li>
+      <li><a href="https://arxiv.org/abs/2212.10496v1" target="_blank" rel="noopener">Gao et al.: Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)</a></li>
+    </ul>
+    <p class="bio"><b>幻觉、压缩与记忆</b></p>
+    <ul class="plain">
+      <li><a href="https://docs.nvidia.com/nemo/guardrails/latest/configure-guardrails/guardrail-catalog/fact-checking" target="_blank" rel="noopener">NVIDIA NeMo Guardrails: Hallucinations & Fact-Checking</a></li>
+      <li><a href="https://arxiv.org/pdf/2504.20119" target="_blank" rel="noopener">Can LLMs Be Trusted for Evaluating RAG Systems? A Survey</a></li>
+      <li><a href="https://www.microsoft.com/en-us/research/blog/llmlingua-innovating-llm-efficiency-with-prompt-compression/" target="_blank" rel="noopener">Microsoft Research: LLMLingua</a></li>
+      <li><a href="https://arxiv.org/html/2504.19413v1" target="_blank" rel="noopener">Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory</a></li>
+      <li><a href="https://arxiv.org/html/2601.05504v1" target="_blank" rel="noopener">Memory Poisoning Attack and Defense on Memory Based LLM-Agents</a></li>
     </ul>
 
     <footer>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图论：建图、拓扑排序、最小生成树与最短路 — 算法思考 · 李恒桓</title>
+<meta name="description" content="左程云算法课图论章节整理：链式前向星、拓扑排序、Kruskal / Prim、BFS / 01-BFS、Dijkstra、分层图、Floyd、Bellman-Ford / SPFA，附验证过的 Java 代码。">
+<link rel="canonical" href="https://lihenghuan.com/algo/graph.html">
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="page page-detail">
+  <main>
+    <a class="back" href="index.html">← 返回算法思考</a>
+
+    <h1 class="detail-title">图论：建图、拓扑排序、最小生成树与最短路</h1>
+    <div class="detail-meta">图论 · 左程云算法课 讲解 059–065 <span class="when">｜ 写于 2026.10</span></div>
+    <div class="stack">链式前向星 · 拓扑排序 · 并查集 · 01-BFS · Dijkstra · 分层图 · Floyd · SPFA</div>
+
+    <p class="bio" style="margin-top:18px">
+      对应左程云课程 <a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class059" target="_blank" rel="noopener">讲解 059</a>–<a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class065" target="_blank" rel="noopener">讲解 065</a>，也就是他标为【必备】的那部分图论：建图、拓扑排序、最小生成树、BFS 及其扩展、
+      最短路（Dijkstra、分层图、Floyd、Bellman-Ford / SPFA）。割点、强连通分量、网络流这些他放在了后面的【挺难】课程，这篇不涉及。
+    </p>
+    <p class="bio">
+      代码全部基于链式前向星。验证方式是在 3000 张随机图上交叉对比：Dijkstra、Floyd、SPFA 三种最短路结果必须一致；
+      Kruskal 和 Prim 的生成树权值和必须一致；01-BFS 和 Dijkstra 在 0/1 权图上必须一致；分层图最短路和一个在「点 × 层」状态上迭代的暴力 Bellman-Ford 对比；
+      负环判断由 SPFA 和朴素 Bellman-Ford 对比。随机图里有环和无环、有负环和无负环、连通和不连通的情况都覆盖到了。
+    </p>
+
+    <h2>建图</h2>
+    <p class="bio">
+      三种方式。邻接矩阵 <code>graph[u][v] = w</code> 最直观，但空间 O(n²)，点数上千就开不下。
+      邻接表 <code>ArrayList&lt;ArrayList&lt;int[]&gt;&gt;</code> 是最常用的，面试写这个就够了。
+      链式前向星把所有边存进几个定长数组，每个点只记「最后一条边的编号」，边与边之间用 <code>next</code> 串成链表。
+      它没有对象开销，在洛谷这类卡空间的平台上用邻接表可能会超内存，换成链式前向星就过了。
+    </p>
+    <pre class="code">// 链式前向星：用几个静态数组存图，比 ArrayList 邻接表省空间，比赛和笔试常用
+public static int MAXN = 10001;          // 点数上限
+public static int MAXM = 200001;         // 边数上限（无向图要 * 2）
+public static int[] head = new int[MAXN];    // head[u]：u 的最后一条边的编号，0 表示没有边
+public static int[] next = new int[MAXM];    // next[e]：和边 e 同起点的上一条边
+public static int[] to = new int[MAXM];      // to[e]：边 e 指向的点
+public static int[] weight = new int[MAXM];  // weight[e]：边 e 的权重
+public static int cnt;                       // 边编号从 1 开始
+
+public static void build(int n) {
+    cnt = 1;
+    Arrays.fill(head, 0, n + 1, 0);
+}
+
+// 加一条 u -&gt; v 的有向边；头插法，所以遍历顺序和加边顺序相反
+public static void addEdge(int u, int v, int w) {
+    next[cnt] = head[u];
+    to[cnt] = v;
+    weight[cnt] = w;
+    head[u] = cnt++;
+}
+
+// 遍历 u 的所有出边：
+// for (int e = head[u]; e != 0; e = next[e]) { int v = to[e], w = weight[e]; ... }</pre>
+    <p class="bio">
+      加边用的是头插法，遍历一个点的出边时顺序和加边顺序相反。绝大多数题无所谓，但如果题目要求「按输入顺序」处理邻居，要注意这一点。
+    </p>
+
+    <h2>拓扑排序</h2>
+    <p class="bio">
+      拓扑序要求每个点都排在它的所有前置点之后，前提是有向无环图。Kahn 算法：先统计入度，把入度为 0 的点放进队列；
+      每弹出一个点，就把它指向的点入度减一，减到 0 的入队。最后如果没能把所有点都弹出来，剩下的点一定在环上，所以它顺带就能判环。
+    </p>
+    <pre class="code">public static int[] indegree = new int[MAXN];
+public static int[] queue = new int[MAXN];
+
+// Kahn 算法：反复删掉入度为 0 的点，删的顺序就是拓扑序
+// 点编号 1..n；返回拓扑序，有环时返回 null
+public static int[] topoSort(int n) {
+    Arrays.fill(indegree, 1, n + 1, 0);
+    for (int u = 1; u &lt;= n; u++) {
+        for (int e = head[u]; e != 0; e = next[e]) {
+            indegree[to[e]]++;
+        }
+    }
+    int l = 0, r = 0;
+    for (int u = 1; u &lt;= n; u++) {
+        if (indegree[u] == 0) queue[r++] = u;
+    }
+    while (l &lt; r) {
+        int u = queue[l++];
+        for (int e = head[u]; e != 0; e = next[e]) {
+            if (--indegree[to[e]] == 0) {   // 删掉 u 的影响
+                queue[r++] = to[e];
+            }
+        }
+    }
+    // 没能删光所有点，说明剩下的点在环上
+    return r == n ? Arrays.copyOf(queue, n) : null;
+}</pre>
+    <p class="bio">
+      拓扑序通常不唯一。题目要「字典序最小的拓扑序」时，把队列换成小根堆，每次弹出当前可选的最小编号即可。
+      课程里还有几道把拓扑排序当工具用的题，比如在拓扑序上做 DP（<a href="https://github.com/algorithmzuo/algorithm-journey/tree/main/src/class060" target="_blank" rel="noopener">讲解 060</a> 的食物链计数、并行课程 III），值得一起看。
+    </p>
+    <p class="tbl-note">练习：<a href="https://leetcode.cn/problems/course-schedule-ii/" target="_blank" rel="noopener">LeetCode 210 课程表 II</a>　<a href="https://www.luogu.com.cn/problem/U107394" target="_blank" rel="noopener">洛谷 U107394 字典序最小拓扑序</a>　<a href="https://www.luogu.com.cn/problem/P4017" target="_blank" rel="noopener">洛谷 P4017 最大食物链计数</a></p>
+
+    <h2>最小生成树</h2>
+    <p class="bio">
+      无向带权图里选 n − 1 条边把所有点连通，并且权值和最小。Kruskal 最常用：边按权值从小到大排序，依次考察，
+      用并查集判断这条边的两个端点是否已经连通，没连通就选它。复杂度主要花在排序上，O(m log m)。
+    </p>
+    <pre class="code">public static int[] father = new int[MAXN];
+
+public static int find(int x) {
+    if (x != father[x]) {
+        father[x] = find(father[x]);   // 路径压缩
+    }
+    return father[x];
+}
+
+// edges[i] = {u, v, w}，无向图，点编号 1..n
+// 返回最小生成树的权值和，图不连通返回 -1
+public static long kruskal(int n, int[][] edges) {
+    for (int i = 1; i &lt;= n; i++) father[i] = i;
+    Arrays.sort(edges, (a, b) -&gt; a[2] - b[2]);   // 边按权值从小到大
+    long sum = 0;
+    int used = 0;
+    for (int[] e : edges) {
+        int fu = find(e[0]), fv = find(e[1]);
+        if (fu != fv) {                 // 不成环才要这条边
+            father[fu] = fv;
+            sum += e[2];
+            used++;
+        }
+    }
+    return used == n - 1 ? sum : -1;
+}</pre>
+    <p class="bio">
+      Prim 从一个点出发，每次在「一端已解锁、另一端没解锁」的边里挑最便宜的。用普通堆实现是 O(m log m)，
+      课程里还讲了用反向索引堆优化到 O((n + m) log n) 的版本，稠密图上更快，但实现麻烦得多，笔试里用 Kruskal 就够了。
+    </p>
+    <pre class="code">public static boolean[] visited = new boolean[MAXN];
+
+// Prim：从 1 号点出发，每次用堆找连向「已解锁点集」之外的最便宜的边
+// 需要先用链式前向星建好无向图（每条边加两次）
+public static long prim(int n) {
+    Arrays.fill(visited, 1, n + 1, false);
+    PriorityQueue&lt;int[]&gt; heap = new PriorityQueue&lt;&gt;((a, b) -&gt; a[1] - b[1]);   // {点, 边权}
+    heap.add(new int[] { 1, 0 });
+    long sum = 0;
+    int done = 0;
+    while (!heap.isEmpty()) {
+        int[] cur = heap.poll();
+        int u = cur[0];
+        if (visited[u]) continue;
+        visited[u] = true;
+        sum += cur[1];
+        done++;
+        for (int e = head[u]; e != 0; e = next[e]) {
+            if (!visited[to[e]]) heap.add(new int[] { to[e], weight[e] });
+        }
+    }
+    return done == n ? sum : -1;
+}</pre>
+    <p class="bio">
+      一个有用的性质：最小生成树同时也是最小瓶颈树，也就是在所有生成树里，它的最大边是最小的。
+      「繁忙的都市」那题问的就是这个，直接跑 Kruskal，记录选中的最后一条边即可。
+    </p>
+    <p class="tbl-note">练习：<a href="https://www.luogu.com.cn/problem/P3366" target="_blank" rel="noopener">洛谷 P3366 最小生成树模板</a>　<a href="https://www.luogu.com.cn/problem/P2330" target="_blank" rel="noopener">洛谷 P2330 繁忙的都市</a>　<a href="https://leetcode.cn/problems/checking-existence-of-edge-length-limited-paths/" target="_blank" rel="noopener">LeetCode 1697 检查边长度限制的路径是否存在</a></p>
+
+    <h2>BFS 和 01-BFS</h2>
+    <p class="bio">
+      BFS 逐层往外扩，从源点扩了几层，最短路就是几，前提是所有边的长度相同。源点可以有多个，一开始全部入队即可，
+      比如「地图分析」要算每片海洋到最近陆地的距离，就是把所有陆地同时作为源点。节点入队时就标记，防止重复入队。
+    </p>
+    <p class="bio">
+      边权只有 0 和 1 时，可以用双端队列代替堆：经过 0 权边到达的点放队头，经过 1 权边的放队尾，队列里的距离始终单调，
+      复杂度 O(n + m)，比 Dijkstra 少一个 log。和普通 BFS 不同，这里不用 visited 数组，一个点可能入队不止一次，
+      是否处理只看 <code>distance</code> 能不能变小。网格里「移除最少障碍物」这类题，走空地权为 0、走障碍权为 1，就是 01-BFS。
+    </p>
+    <pre class="code">public static int[] deque = new int[MAXM * 2 + MAXN];
+
+// 01-BFS：边权只有 0 和 1 时，用双端队列代替堆，O(n + m)
+// 走 0 权边的点放队头，走 1 权边的点放队尾
+public static void bfs01(int n, int s) {
+    Arrays.fill(distance, 1, n + 1, INF);
+    int h = MAXM, t = MAXM;           // 从数组中间开始，两头都能放
+    distance[s] = 0;
+    deque[t++] = s;
+    while (h &lt; t) {
+        int u = deque[h++];
+        for (int e = head[u]; e != 0; e = next[e]) {
+            int v = to[e], w = weight[e];
+            if (distance[u] + w &lt; distance[v]) {
+                distance[v] = distance[u] + w;
+                if (w == 0) deque[--h] = v;
+                else deque[t++] = v;
+            }
+        }
+    }
+}</pre>
+    <p class="tbl-note">练习：<a href="https://leetcode.cn/problems/as-far-from-land-as-possible/" target="_blank" rel="noopener">LeetCode 1162 地图分析</a>　<a href="https://leetcode.cn/problems/minimum-obstacle-removal-to-reach-corner/" target="_blank" rel="noopener">LeetCode 2290 到达角落需要移除障碍物的最小数目</a>　<a href="https://leetcode.cn/problems/minimum-cost-to-make-at-least-one-valid-path-in-a-grid/" target="_blank" rel="noopener">LeetCode 1368 使网格图至少有一条有效路径的最小代价</a></p>
+
+    <h2>Dijkstra</h2>
+    <p class="bio">
+      单源最短路，要求边权非负。核心只有一句：从堆里弹出的点，它的距离已经是最终答案。弹出过的点以后再弹出就跳过；
+      没弹出过的点，去松弛它的邻居，能让邻居距离变小就把新记录加进堆。堆里同一个点可能有多条旧记录，靠 <code>visited</code> 过滤掉。
+    </p>
+    <p class="bio">
+      有负权边时这个前提不成立：一个点弹出之后，还可能通过一条负权边被改得更小，所以负权图要用 Bellman-Ford 或 SPFA。
+    </p>
+    <pre class="code">public static int INF = Integer.MAX_VALUE;
+public static int[] distance = new int[MAXN];
+
+// 普通堆版 Dijkstra，O(m * log m)，要求边权非负
+// 弹出过的点距离已经确定，以后再弹出就忽略
+public static void dijkstra(int n, int s) {
+    Arrays.fill(distance, 1, n + 1, INF);
+    Arrays.fill(visited, 1, n + 1, false);
+    PriorityQueue&lt;int[]&gt; heap = new PriorityQueue&lt;&gt;((a, b) -&gt; a[1] - b[1]);   // {点, 源点到它的距离}
+    distance[s] = 0;
+    heap.add(new int[] { s, 0 });
+    while (!heap.isEmpty()) {
+        int u = heap.poll()[0];
+        if (visited[u]) continue;
+        visited[u] = true;
+        for (int e = head[u]; e != 0; e = next[e]) {
+            int v = to[e], w = weight[e];
+            if (!visited[v] &amp;&amp; distance[u] + w &lt; distance[v]) {
+                distance[v] = distance[u] + w;
+                heap.add(new int[] { v, distance[v] });
+            }
+        }
+    }
+}</pre>
+    <p class="tbl-note">练习：<a href="https://www.luogu.com.cn/problem/P4779" target="_blank" rel="noopener">洛谷 P4779 单源最短路径（标准版）</a>　<a href="https://leetcode.cn/problems/network-delay-time/" target="_blank" rel="noopener">LeetCode 743 网络延迟时间</a>　<a href="https://leetcode.cn/problems/path-with-minimum-effort/" target="_blank" rel="noopener">LeetCode 1631 最小体力消耗路径</a></p>
+
+    <h2>分层图最短路</h2>
+    <p class="bio">
+      有些题的「位置」不足以描述状态。比如「飞行路线」：可以免费坐最多 k 次航班。同一个城市，已经用了 1 次免费和用了 3 次免费，
+      后面的选择完全不同。做法是把图上的点扩成「城市 + 已用免费次数」，每个城市复制出 k + 1 层，
+      付费的边在同一层内走，免费的边从第 j 层连到第 j + 1 层，然后照常跑 Dijkstra。
+    </p>
+    <pre class="code">// 分层图最短路（扩点）：最多可以免费走 k 条边，求 s 到 t 的最少花费
+// 图上的点不再是「城市」，而是「城市 + 已经用了几次免费」
+public static int[][] dist2 = new int[MAXN][11];
+public static boolean[][] vis2 = new boolean[MAXN][11];
+
+public static int freeK(int n, int k, int s, int t) {
+    for (int i = 1; i &lt;= n; i++) {
+        Arrays.fill(dist2[i], 0, k + 1, INF);
+        Arrays.fill(vis2[i], 0, k + 1, false);
+    }
+    PriorityQueue&lt;int[]&gt; heap = new PriorityQueue&lt;&gt;((a, b) -&gt; a[2] - b[2]);   // {城市, 已用免费次数, 花费}
+    dist2[s][0] = 0;
+    heap.add(new int[] { s, 0, 0 });
+    while (!heap.isEmpty()) {
+        int[] cur = heap.poll();
+        int u = cur[0], used = cur[1], cost = cur[2];
+        if (vis2[u][used]) continue;
+        vis2[u][used] = true;
+        if (u == t) return cost;          // 第一次弹出终点就是答案
+        for (int e = head[u]; e != 0; e = next[e]) {
+            int v = to[e], w = weight[e];
+            // 不用免费：花 w，层数不变
+            if (!vis2[v][used] &amp;&amp; cost + w &lt; dist2[v][used]) {
+                dist2[v][used] = cost + w;
+                heap.add(new int[] { v, used, cost + w });
+            }
+            // 用一次免费：花 0，进入下一层
+            if (used &lt; k &amp;&amp; !vis2[v][used + 1] &amp;&amp; cost &lt; dist2[v][used + 1]) {
+                dist2[v][used + 1] = cost;
+                heap.add(new int[] { v, used + 1, cost });
+            }
+        }
+    }
+    return -1;
+}</pre>
+    <p class="bio">
+      Dijkstra 本身一行没改，变的只是「点是什么」。「获取所有钥匙的最短路径」也是这个思路，状态是「位置 + 手上有哪些钥匙」，
+      钥匙最多 6 把，用一个 int 的低 6 位表示，再跑 BFS。
+    </p>
+    <p class="tbl-note">练习：<a href="https://www.luogu.com.cn/problem/P4568" target="_blank" rel="noopener">洛谷 P4568 飞行路线</a>　<a href="https://leetcode.cn/problems/shortest-path-to-get-all-keys/" target="_blank" rel="noopener">LeetCode 864 获取所有钥匙的最短路径</a></p>
+
+    <h2>Floyd</h2>
+    <p class="bio">
+      求任意两点之间的最短路，O(n³) 时间、O(n²) 空间，点数到几百还能接受。可以有负权边，不能有负环。
+      实现只有三层循环，唯一要记住的是跳板 <code>k</code> 必须放在最外层：处理到第 k 轮时，
+      <code>dist[i][j]</code> 的含义是「中间只经过 1..k 号点」的最短路，把 k 放到里层这个含义就不成立了。
+    </p>
+    <pre class="code">public static int MAXF = 101;
+public static long[][] dist = new long[MAXF][MAXF];
+
+// Floyd：任意两点最短路，O(n^3)；dist 先填好直连边（没边填极大值，自己到自己填 0）
+// 跳板 k 必须放在最外层
+public static void floyd(int n) {
+    for (int k = 1; k &lt;= n; k++) {
+        for (int i = 1; i &lt;= n; i++) {
+            for (int j = 1; j &lt;= n; j++) {
+                if (dist[i][k] + dist[k][j] &lt; dist[i][j]) {
+                    dist[i][j] = dist[i][k] + dist[k][j];
+                }
+            }
+        }
+    }
+}</pre>
+    <p class="tbl-note">练习：<a href="https://www.luogu.com.cn/problem/P2910" target="_blank" rel="noopener">洛谷 P2910 Clear And Present Danger</a></p>
+
+    <h2>Bellman-Ford 与 SPFA</h2>
+    <p class="bio">
+      Bellman-Ford 每一轮把所有边都拿出来松弛一次。没有负环时，最短路最多 n − 1 条边，所以 n − 1 轮之后就收敛了；
+      如果第 n 轮还有边能松弛，说明存在负环。复杂度 O(n·m)。
+    </p>
+    <p class="bio">
+      SPFA 的优化是：只有距离刚刚变小的点才可能去松弛别人，所以用一个队列只放这些点。判负环时记录每个点当前最短路用了几条边，
+      达到 n 条就说明在负环上绕圈了。SPFA 的最坏复杂度仍然是 O(n·m)，而且能被专门构造的数据卡掉，
+      所以边权非负的题一律用 Dijkstra，SPFA 只留给负权边和判负环。
+    </p>
+    <pre class="code">public static long[] d = new long[MAXN];
+public static int[] edgesUsed = new int[MAXN];   // 源点到该点的当前最短路用了几条边
+public static boolean[] inQueue = new boolean[MAXN];
+public static int[] q = new int[MAXN];
+
+// SPFA = 用队列优化的 Bellman-Ford：只有距离刚变小的点，才可能去松弛别人
+// 可以有负权边；返回 true 表示从 s 出发能走到负环
+public static boolean spfa(int n, int s) {
+    Arrays.fill(d, 1, n + 1, Long.MAX_VALUE);
+    Arrays.fill(edgesUsed, 1, n + 1, 0);
+    Arrays.fill(inQueue, 1, n + 1, false);
+    int l = 0, r = 0, size = 0;       // 循环队列
+    d[s] = 0;
+    q[r] = s; r = (r + 1) % MAXN; size++;
+    inQueue[s] = true;
+    while (size &gt; 0) {
+        int u = q[l]; l = (l + 1) % MAXN; size--;
+        inQueue[u] = false;
+        for (int e = head[u]; e != 0; e = next[e]) {
+            int v = to[e], w = weight[e];
+            if (d[u] + w &lt; d[v]) {
+                d[v] = d[u] + w;
+                edgesUsed[v] = edgesUsed[u] + 1;
+                // 没有负环时，最短路最多 n - 1 条边；超过就说明绕进了负环
+                if (edgesUsed[v] &gt;= n) return true;
+                if (!inQueue[v]) {
+                    q[r] = v; r = (r + 1) % MAXN; size++;
+                    inQueue[v] = true;
+                }
+            }
+        }
+    }
+    return false;
+}</pre>
+    <p class="bio">
+      LeetCode 787「K 站中转内最便宜的航班」限制了最多经过的边数，用 Bellman-Ford 跑 k + 1 轮正好对应，
+      注意每一轮要基于上一轮的距离数组松弛，不然一轮之内可能连续走好几条边。
+    </p>
+    <p class="tbl-note">练习：<a href="https://www.luogu.com.cn/problem/P3385" target="_blank" rel="noopener">洛谷 P3385 负环</a>　<a href="https://leetcode.cn/problems/cheapest-flights-within-k-stops/" target="_blank" rel="noopener">LeetCode 787 K 站中转内最便宜的航班</a></p>
+
+    <h2>A*</h2>
+    <p class="bio">
+      A* 只用于指定起点和终点的最短路。它就是 Dijkstra 加上一个估价函数：堆里按「起点到当前点的距离 + 当前点到终点的估计距离」排序，
+      让搜索往终点方向偏。估计距离必须不超过真实距离，否则结果可能出错；在不超过的前提下越接近真实值越快。
+      网格上常用曼哈顿距离（只能上下左右走）、对角线距离（可以斜着走）或欧氏距离。
+    </p>
+
+    <h2>该用哪个</h2>
+    <table class="tbl">
+      <thead><tr><th>场景</th><th>算法</th><th>复杂度</th></tr></thead>
+      <tbody>
+        <tr><th>有依赖关系，求执行顺序或判环</th><td>拓扑排序</td><td>O(n + m)</td></tr>
+        <tr><th>无向图连通且总代价最小</th><td>Kruskal</td><td>O(m log m)</td></tr>
+        <tr><th>边权全相同</th><td>BFS</td><td>O(n + m)</td></tr>
+        <tr><th>边权只有 0 和 1</th><td>01-BFS</td><td>O(n + m)</td></tr>
+        <tr><th>单源，边权非负</th><td>Dijkstra</td><td>O(m log m)</td></tr>
+        <tr><th>状态不止位置</th><td>分层图 + BFS / Dijkstra</td><td>看状态数</td></tr>
+        <tr><th>任意两点，点数几百以内</th><td>Floyd</td><td>O(n³)</td></tr>
+        <tr><th>有负权边、要判负环</th><td>Bellman-Ford / SPFA</td><td>O(n·m)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>参考</h2>
+    <p class="bio">
+      章节顺序和题目选择来自左程云的「算法讲解」课程，课程代码和课件在
+      <a href="https://github.com/algorithmzuo/algorithm-journey" target="_blank" rel="noopener">algorithmzuo/algorithm-journey</a>。
+      本文代码是我按自己的习惯重写的，没有照搬课程代码。
+    </p>
+
+    <footer>
+      <span><a href="../index.html">李恒桓 Henghuan Li</a></span>
+      <span>Last updated: Oct 2026</span>
+    </footer>
+  </main>
+</div>
+</body>
+</html>
