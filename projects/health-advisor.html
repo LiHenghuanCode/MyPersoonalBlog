@@ -17,6 +17,10 @@
     <div class="detail-meta">多模态文档理解 + RAG <span class="when">｜ 2026.02 — 2026.05</span></div>
     <div class="stack">Go 1.25 · gRPC · Python 3.11 · LangGraph · Milvus · PostgreSQL · Redis · React 19 · pytest</div>
 
+    <p class="bio" style="margin-top:18px">
+      数据口径：文中本项目的数字都来自仓库 <code>python-ai/app/eval/reports</code> 的离线实验，样本是仓库语料和合成数据，不代表真实患者或线上效果。业界做法引用的是公开文档和论文，链接见文末「参考资料」。
+    </p>
+
     <h2>业务理解</h2>
 
     <h3>1. 定义</h3>
@@ -29,7 +33,6 @@
         <tr><th>护士、全科和专科随访团队（次要用户）</th><td>向患者解释结果，做随访</td></tr>
       </tbody>
     </table></div>
-    <p class="todo">【待补】PDF 导出时这张表右侧被截断，第三列（各类用户的痛点）看不全，没有放进来。</p>
     <p class="bio">目前是个人原型，没有真实的医院用户量。试点容量按一家医院 1–3 个门诊或随访团队来规划，这是设计假设，不是实际数据。</p>
 
     <h3>2. 业务闭环</h3>
@@ -124,31 +127,29 @@
     <h3>1.2 业务拆解</h3>
     <p class="bio">【把一份报告变成可信的结构化指标】可以拆成五个子问题，每一个都可能单独出错：</p>
     <div class="tbl-scroll"><table class="tbl tbl-text tbl-doc">
-      <thead><tr><th>子问题</th><th>要做到什么</th></tr></thead>
+      <thead><tr><th>子问题</th><th>要做到什么</th><th>典型失败</th></tr></thead>
       <tbody>
-        <tr><th>拿到数据</th><td>支持照片、扫描件、PDF，判断图片质量</td></tr>
-        <tr><th>还原版面和表格</th><td>知道哪个数属于哪一行、哪一列</td></tr>
-        <tr><th>识别字符</th><td>数字、小数点、↑ ↓ 标记、单位一个不错</td></tr>
-        <tr><th>字段归一</th><td>指标名对应标准编码；单位和参考区间口径一致</td></tr>
-        <tr><th>判断可信度</th><td>知道哪些结果靠得住，靠不住时让用户补拍</td></tr>
+        <tr><th>拿到数据</th><td>支持照片、扫描件、PDF，判断图片质量</td><td>模糊、反光、遮挡、拍斜</td></tr>
+        <tr><th>还原版面和表格</th><td>知道哪个数属于哪一行、哪一列</td><td>跨页无表头、合并单元格、无线表格、行列错位</td></tr>
+        <tr><th>识别字符</th><td>数字、小数点、↑↓ 标记、单位一个不错</td><td>5.12 读成 51.2，模型自行补全看不清的数</td></tr>
+        <tr><th>字段归一</th><td>指标名对应标准编码；单位和参考区间口径一致</td><td>各家医院叫法不同；mg/dL 与 mmol/L 混用；各实验室区间不同</td></tr>
+        <tr><th>判断可信度</th><td>知道哪些结果靠得住，靠不住时让用户补拍</td><td>错值被当成确定值传下去</td></tr>
       </tbody>
     </table></div>
-    <p class="todo">【待补】PDF 导出时这张表右侧被截断，第三列（每个子问题的典型错误）看不全，没有放进来。</p>
 
     <h3>1.3 业界现有做法与优缺点</h3>
     <div class="tbl-scroll"><table class="tbl tbl-text tbl-doc">
-      <thead><tr><th>做法</th><th>代表</th><th>优点</th></tr></thead>
+      <thead><tr><th>做法</th><th>代表</th><th>优点</th><th>缺点</th></tr></thead>
       <tbody>
-        <tr><th>院内系统直连</th><td>LIS、区域平台跨机构调阅</td><td>直接拿到结构化原始数据，不存在识别错误</td></tr>
-        <tr><th>人工录入</th><td>患者或客服手填</td><td>准确，实现简单</td></tr>
-        <tr><th>云厂商专用识别接口</th><td><a href="https://ai.baidu.com/ai-doc/OCR/Ekvakju92" target="_blank" rel="noopener">百度医疗检验报告单识别</a>、<a href="https://cloud.tencent.com/document/api/1314/56238" target="_blank" rel="noopener">腾讯云医疗报告结构化</a></td><td>开箱即用；百度接口直接返回项目名、结果、单位、参考区间、结果提示和置信度</td></tr>
-        <tr><th>通用 OCR + 模板或正则</th><td>通用 OCR + 自写规则</td><td>便宜、可控、可解释</td></tr>
-        <tr><th>版面分析 + 表格结构识别管线</th><td><a href="https://www.paddleocr.ai/latest/en/version3.x/pipeline_usage/PP-StructureV3.html" target="_blank" rel="noopener">PP-StructureV3</a>、MinerU</td><td>专门做版面和表格，有线和无线表格分别建模；公开评测里表格识别强于通用视觉模型</td></tr>
-        <tr><th>端到端视觉大模型</th><td>Qwen-VL、GPT-4o</td><td>能理解版面，对模糊和水印更稳；一步输出结构化 JSON</td></tr>
-        <tr><th>OCR + 大模型后处理</th><td>OCR 文本交给 LLM 抽字段</td><td>数值字段召回最高</td></tr>
+        <tr><th>院内系统直连</th><td>LIS、区域平台跨机构调阅</td><td>直接拿到结构化原始数据，不存在识别错误</td><td>需要医院合作和接口对接，个人用户无法自助接入；政策要求 2025 年底二级及以上公立医院实现跨机构调阅（<a href="https://www.ithome.com/0/813/593.htm" target="_blank" rel="noopener">七部门指导意见</a>），患者端入口尚不统一</td></tr>
+        <tr><th>人工录入</th><td>患者或客服手填</td><td>准确，实现简单</td><td>成本高、慢，患者不愿意逐项填</td></tr>
+        <tr><th>云厂商专用识别接口</th><td><a href="https://ai.baidu.com/ai-doc/OCR/Ekvakju92" target="_blank" rel="noopener">百度医疗检验报告单识别</a>、<a href="https://cloud.tencent.com/document/api/1314/56238" target="_blank" rel="noopener">腾讯云医疗报告结构化</a></td><td>开箱即用；百度接口直接返回项目名、结果、单位、参考区间、结果提示和置信度</td><td>黑盒，对少见版式的效果不可控；按调用付费；健康数据要传给第三方</td></tr>
+        <tr><th>通用 OCR + 模板或正则</th><td>通用 OCR + 自写规则</td><td>便宜、可控、可解释</td><td>一个版式一套规则，换医院就失效；解决不了行列错位</td></tr>
+        <tr><th>版面分析 + 表格结构识别管线</th><td><a href="https://www.paddleocr.ai/latest/en/version3.x/pipeline_usage/PP-StructureV3.html" target="_blank" rel="noopener">PP-StructureV3</a>、MinerU</td><td>专门做版面和表格，有线和无线表格分别建模；公开评测里表格识别强于通用视觉模型</td><td>要自己部署；针对扫描件和电子文档训练，对手机照片的稳健性未必够</td></tr>
+        <tr><th>端到端视觉大模型</th><td>Qwen-VL、GPT-4o</td><td>能理解版面，对模糊和水印更稳；一步输出结构化 JSON</td><td>会「读出」图里没有的字（<a href="https://arxiv.org/html/2506.20168v1" target="_blank" rel="noopener">OCR 幻觉研究</a>）；单次生成，没有交叉参照；表格旋转时效果大幅下降</td></tr>
+        <tr><th>OCR + 大模型后处理</th><td>OCR 文本交给 LLM 抽字段</td><td>数值字段召回最高</td><td>OCR 的错误会传下去，版面线索也丢了</td></tr>
       </tbody>
     </table></div>
-    <p class="todo">【待补】PDF 导出时这张表右侧被截断，「缺点」列看不全，没有放进来。</p>
     <p class="bio">两组公开评测给出了取舍的数量级：</p>
     <ul class="plain">
       <li><a href="https://arxiv.org/pdf/2508.16674" target="_blank" rel="noopener">MedRepBench</a> 用 1,925 张去标识的中文医疗报告图片（照片、截图和电子文档）测试了项目名、数值、单位、参考区间和异常标记的抽取。LLaMA-4-Maverick 纯看图时数值召回 72.3%，提供 OCR 文本后升到 87.4%；Qwen2.5-VL-32B 的异常标记召回从 84.0% 降到 59.7%。去掉 OCR 后，平均召回下降 10% 到 20%。</li>
@@ -161,16 +162,15 @@
     <p class="bio">左路是 PDF，字符本身可信，只做结构还原；右路是图片，两个通道的结果在合并裁决处互相核对，置信度不够就回到上传要求补拍。</p>
     <p class="bio"><b>按输入形态路由。</b> 电子 PDF 有文本层，字符本身是准的，不再过 OCR，只做表格结构还原。图片和扫描件同时走 OCR 和 VLM 两个通道，利用二者错误类型不同做交叉核对。</p>
     <div class="tbl-scroll"><table class="tbl tbl-text tbl-doc">
-      <thead><tr><th>输入</th><th>通道</th></tr></thead>
+      <thead><tr><th>输入</th><th>通道</th><th>做法</th></tr></thead>
       <tbody>
-        <tr><th>PDF，有线表格</th><td>表格通道</td></tr>
-        <tr><th>PDF，无线表格</th><td>无线表格通道</td></tr>
-        <tr><th>PDF，抽不到表</th><td>文本行通道</td></tr>
-        <tr><th>图片、扫描件</th><td>OCR 通道</td></tr>
-        <tr><th>图片、扫描件</th><td>VLM 通道</td></tr>
+        <tr><th>PDF，有线表格</th><td>表格通道</td><td><code>pdfplumber.extract_tables</code>；表头别名表把各家列名统一成名称、结果、单位、参考区间、提示五个字段</td></tr>
+        <tr><th>PDF，无线表格</th><td>无线表格通道</td><td>文字块按 y 坐标聚成行（容差 3pt），从表头推断各列起始 x，再按 x 归列（容差 8pt）</td></tr>
+        <tr><th>PDF，抽不到表</th><td>文本行通道</td><td>按两个以上空格切列，切不开时用正则定位第一个结果值</td></tr>
+        <tr><th>图片、扫描件</th><td>OCR 通道</td><td>腾讯云 GeneralFastOCR 返回文字块坐标，<code>reflow_ocr_lines</code> 按坐标重排成「一行一指标」，再走文本行解析</td></tr>
+        <tr><th>图片、扫描件</th><td>VLM 通道</td><td>qwen-vl-max 直接输出 JSON；prompt 要求「只抽取看到的，不补全、不推测」</td></tr>
       </tbody>
     </table></div>
-    <p class="todo">【待补】PDF 导出时这张表右侧被截断，第三列（各通道的具体实现）看不全，没有放进来。</p>
     <p class="bio">PDF 表格还原由 <code>TableParseContext</code> 跨页保存状态：续页没有表头时沿用上一页列映射（条件不满足就不接，宁可漏接不错接）；跨行合并时继承上一个非空名称；跨列说明行和重复表头丢弃；章节标题行清空待继承状态。</p>
     <p class="bio"><b>双通道合并裁决</b>（<code>merge_channel_metrics</code>，单张图内）：</p>
     <div class="tbl-scroll"><table class="tbl tbl-text tbl-doc">
@@ -227,37 +227,34 @@
     <h3>2.3 业界现有做法与优缺点</h3>
     <p class="bio"><b>检索与融合方式</b></p>
     <div class="tbl-scroll"><table class="tbl tbl-text tbl-doc">
-      <thead><tr><th>做法</th><th>优点</th></tr></thead>
+      <thead><tr><th>做法</th><th>优点</th><th>缺点</th></tr></thead>
       <tbody>
-        <tr><th>只用向量检索</th><td>实现最简单，口语问法召回好</td></tr>
-        <tr><th>只用 BM25</th><td>专名和关键词准，可解释</td></tr>
-        <tr><th>混合检索 + RRF</th><td>无需分数校准，即插即用；Elastic 在 BEIR 上测得比单路 BM25 的 NDCG@10 高 18%，参数调得好坏只差约 5%（<a href="https://www.elastic.co/blog/improving-information-retrieval-elastic-stack-hybrid" target="_blank" rel="noopener">Elastic</a>）</td></tr>
-        <tr><th>混合检索 + 加权分数</th><td>校准得好时优于 RRF</td></tr>
-        <tr><th>召回后加 Cross-Encoder 精排</th><td>比双塔向量准；Anthropic 建议召回约 150 条再精排到 20 条</td></tr>
+        <tr><th>只用向量检索</th><td>实现最简单，口语问法召回好</td><td>精确数字、编码、专名匹配弱</td></tr>
+        <tr><th>只用 BM25</th><td>专名和关键词准，可解释</td><td>口语和同义转述召回差</td></tr>
+        <tr><th>混合检索 + RRF</th><td>无需分数校准，即插即用；Elastic 在 BEIR 上测得比单路 BM25 的 NDCG@10 高 18%，参数调得好坏只差约 5%（<a href="https://www.elastic.co/blog/improving-information-retrieval-elastic-stack-hybrid" target="_blank" rel="noopener">Elastic</a>）</td><td>只用排名，扔掉了分数里的信息；两路查询延迟叠加</td></tr>
+        <tr><th>混合检索 + 加权分数</th><td>校准得好时优于 RRF</td><td>要先归一化分数，BM25 分数范围事先未知；最优权重随数据集变，需要带标注的查询来调</td></tr>
+        <tr><th>召回后加 Cross-Encoder 精排</th><td>比双塔向量准；Anthropic 建议召回约 150 条再精排到 20 条</td><td>每个候选单独计算，延迟和成本随候选数增长</td></tr>
       </tbody>
     </table></div>
-    <p class="todo">【待补】PDF 导出时这张表右侧被截断，「缺点」列看不全，没有放进来。</p>
     <p class="bio"><b>存储引擎</b></p>
     <div class="tbl-scroll"><table class="tbl tbl-text tbl-doc">
-      <thead><tr><th>方案</th><th>优点</th></tr></thead>
+      <thead><tr><th>方案</th><th>优点</th><th>缺点</th></tr></thead>
       <tbody>
-        <tr><th>Elasticsearch / OpenSearch</th><td>BM25 成熟，内置 RRF，也支持向量</td></tr>
-        <tr><th>PostgreSQL + pgvector</th><td>和业务库合一，组件最少</td></tr>
-        <tr><th>Milvus（2.5 起支持全文检索）</th><td>在 schema 里声明 BM25 Function，插入原文自动生成稀疏向量，查询直接传文本；稠密和稀疏向量在同一个集合（<a href="https://docs.zilliz.com/docs/full-text-search" target="_blank" rel="noopener">Zilliz 文档</a>）</td></tr>
+        <tr><th>Elasticsearch / OpenSearch</th><td>BM25 成熟，内置 RRF，也支持向量</td><td>重，个人项目运维成本高</td></tr>
+        <tr><th>PostgreSQL + pgvector</th><td>和业务库合一，组件最少</td><td>内置 <code>tsvector</code> 不是 BM25，要另装扩展；RRF 要在应用层写；先检索后过滤会损失召回（<a href="https://thebuild.com/blog/on-pgvectorscale-and-hybrid-search-without-an-elasticsearch-sidecar/" target="_blank" rel="noopener">分析文章</a>）</td></tr>
+        <tr><th>Milvus（2.5 起支持全文检索）</th><td>在 schema 里声明 BM25 Function，插入原文自动生成稀疏向量，查询直接传文本；稠密和稀疏向量在同一个集合（<a href="https://docs.zilliz.com/docs/full-text-search" target="_blank" rel="noopener">Zilliz 文档</a>）</td><td>Function 要在建集合前声明；单机版也要较多内存</td></tr>
       </tbody>
     </table></div>
-    <p class="todo">【待补】PDF 导出时这张表右侧被截断，「缺点」列看不全，没有放进来。</p>
     <p class="bio"><b>切块与查询增强</b></p>
     <div class="tbl-scroll"><table class="tbl tbl-text tbl-doc">
-      <thead><tr><th>做法</th><th>优点</th></tr></thead>
+      <thead><tr><th>做法</th><th>优点</th><th>缺点</th></tr></thead>
       <tbody>
-        <tr><th>固定长度或递归字符切分</th><td>简单；Chroma 的评测中，200 token、无重叠的递归切分是稳定的默认选择</td></tr>
-        <tr><th>语义切分、LLM 切分</th><td>切在话题边界</td></tr>
-        <tr><th>父子块 / 上下文增强</th><td>小块检索、大块送生成；Anthropic 给每块加 50–100 token 上下文后，失败率降 35%，再加 BM25 降 49%</td></tr>
-        <tr><th>HyDE</th><td>先生成假想答案再检索，无需标注数据（<a href="https://arxiv.org/abs/2212.10496v1" target="_blank" rel="noopener">Gao et al.</a>）</td></tr>
+        <tr><th>固定长度或递归字符切分</th><td>简单；Chroma 的评测中，200 token、无重叠的递归切分是稳定的默认选择</td><td>不看内容，可能把一条信息拆开</td></tr>
+        <tr><th>语义切分、LLM 切分</th><td>切在话题边界</td><td>Chroma 的结论是语义方法并不稳赢，LLM 切分一个语料库要花几分钟（<a href="https://www.trychroma.com/research/evaluating-chunking" target="_blank" rel="noopener">Chroma</a>）</td></tr>
+        <tr><th>父子块 / 上下文增强</th><td>小块检索、大块送生成；Anthropic 给每块加 50–100 token 上下文后，失败率降 35%，再加 BM25 降 49%</td><td>送进模型的 token 变多；上下文增强要对每块调一次 LLM</td></tr>
+        <tr><th>HyDE</th><td>先生成假想答案再检索，无需标注数据（<a href="https://arxiv.org/abs/2212.10496v1" target="_blank" rel="noopener">Gao et al.</a>）</td><td>假想文档可能包含虚假细节；多一次 LLM 调用</td></tr>
       </tbody>
     </table></div>
-    <p class="todo">【待补】PDF 导出时这张表右侧被截断，「缺点」列看不全，没有放进来。</p>
     <p class="bio"><b>向量索引</b>（内存数据来自 <a href="https://zilliz.com/blog/demystify-milvus-sizing-tool" target="_blank" rel="noopener">Milvus 容量文章</a>）</p>
     <div class="tbl-scroll"><table class="tbl tbl-text tbl-doc">
       <thead><tr><th>索引</th><th>内存</th><th>适用</th></tr></thead>
